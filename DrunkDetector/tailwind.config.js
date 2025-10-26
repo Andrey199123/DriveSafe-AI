@@ -19,16 +19,16 @@ module.exports = {
       },
       colors: {
         primary: {
-          DEFAULT: "#4F46E5",
-          hover: "#4338CA",
+          DEFAULT: "#2563eb",
+          hover: "#1d4ed8",
         },
         secondary: {
-          DEFAULT: "#6B7280",
-          hover: "#4B5563",
+          DEFAULT: "#64748b",
+          hover: "#475569",
         },
         accent: {
-          DEFAULT: "#8B5CF6",
-          hover: "#7C3AED",
+          DEFAULT: "#2563eb",
+          hover: "#1d4ed8",
         },
       },
       spacing: {
