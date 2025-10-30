@@ -589,13 +589,29 @@ Return ONLY the JSON object.`,
   const speakAlert = (text: string) => {
     try {
       if (!('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 1.0;
       utterance.pitch = 1.0;
       utterance.volume = 1.0;
-      window.speechSynthesis.cancel();
+      utterance.onerror = () => {
+        // Retry once if it fails (common in PWA)
+        setTimeout(() => {
+          try {
+            window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+          } catch {}
+        }, 200);
+      };
       window.speechSynthesis.speak(utterance);
-    } catch {}
+    } catch {
+      // Fallback: try without canceling
+      try {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.0;
+        utterance.volume = 1.0;
+        window.speechSynthesis.speak(utterance);
+      } catch {}
+    }
   };
 
   const startMonitoring = async () => {
@@ -791,15 +807,15 @@ Return ONLY the JSON object.`,
             </div>
             
             {currentResult && (
-              <div className="absolute top-6 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-sm px-6 py-4 rounded-xl shadow-xl border-2 border-white">
-                <div className="flex items-center gap-4">
-                  <span className={`text-base sm:text-xl font-bold ${getStateColor()}`}>
+              <div className="absolute top-3 sm:top-6 left-2 right-2 sm:left-1/2 sm:right-auto sm:transform sm:-translate-x-1/2 bg-white/95 backdrop-blur-sm px-3 py-2 sm:px-6 sm:py-4 rounded-xl shadow-xl border-2 border-white">
+                <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
+                  <span className={`text-sm sm:text-base md:text-xl font-bold ${getStateColor()}`}>
                     {getStateText()}
                   </span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                    <span className="text-slate-700 font-semibold text-sm sm:text-base">
-                      {currentResult.confidence}% confidence
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                    <span className="text-slate-700 font-semibold text-xs sm:text-sm">
+                      {currentResult.confidence}%
                     </span>
                   </div>
                 </div>
