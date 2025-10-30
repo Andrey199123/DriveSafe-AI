@@ -1,7 +1,7 @@
 {
-  "name": "SafeDrive AI Detector",
-  "short_name": "SafeDrive AI",
-  "description": "AI-powered drunk driving detection to keep our roads safe",
+  "name": "DriveSafe AI",
+  "short_name": "DriveSafe AI",
+  "description": "Hands-free driver alert system to keep roads safe",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f1f5f9",

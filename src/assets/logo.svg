@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="DriveSafe AI">
+  <defs>
+    <linearGradient id="g" x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#1e40af"/>
+    </linearGradient>
+  </defs>
+  <!-- Shield -->
+  <path d="M16 3l9 3v7c0 6.5-4.5 11.6-9 13-4.5-1.4-9-6.5-9-13V6l9-3z" fill="url(#g)"/>
+  <!-- Road/Check motif -->
+  <path d="M12 17.5l2.5 2.5 5.5-6" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M16 8v4" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+</svg>
