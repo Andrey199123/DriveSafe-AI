@@ -15,9 +15,12 @@ export function DrunkDetector() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [currentResult, setCurrentResult] = useState<DetectionResult | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [uploadedVideo, setUploadedVideo] = useState<string | null>(null);
+  const [isVideoMode, setIsVideoMode] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Request notification permission on mount
   useEffect(() => {
@@ -60,6 +63,83 @@ export function DrunkDetector() {
     ctx.drawImage(video, 0, 0, width, height);
     
     return canvas.toDataURL("image/jpeg", 0.9);
+  };
+
+  const handleVideoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Check if it's a video file
+    if (!file.type.startsWith('video/')) {
+      toast.error('Please select a video file');
+      return;
+    }
+
+    // Check file size (limit to 50MB)
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error('Video file is too large. Please select a file under 50MB.');
+      return;
+    }
+
+    const url = URL.createObjectURL(file);
+    setUploadedVideo(url);
+    setIsVideoMode(true);
+    setCurrentResult(null);
+    
+    // Stop live monitoring if active
+    if (isMonitoring) {
+      stopMonitoring();
+    }
+
+    toast.success('Video uploaded successfully!');
+  };
+
+  const analyzeUploadedVideo = async () => {
+    if (!videoRef.current || !uploadedVideo) return;
+
+    setIsAnalyzing(true);
+    try {
+      // Seek to a specific time (e.g., 2 seconds into the video)
+      videoRef.current.currentTime = 2;
+      
+      // Wait for the video to load the frame
+      await new Promise((resolve) => {
+        if (videoRef.current) {
+          videoRef.current.onseeked = resolve;
+        }
+      });
+
+      const base64Image = getBase64FromCanvas();
+      if (!base64Image) {
+        throw new Error("Failed to capture frame from video");
+      }
+
+      const result = await analyzeImageWithOpenAI(base64Image);
+      setCurrentResult(result);
+      
+      if ((result.isDrunk || result.isSleepy || result.isDistracted) && result.confidence >= 30) {
+        toast.error(`⚠️ ${result.state.toUpperCase()} detected in video!`);
+      } else {
+        toast.success('Video analysis complete - no impairment detected');
+      }
+    } catch (error) {
+      console.error("Video analysis failed:", error);
+      toast.error("Failed to analyze video");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const clearUploadedVideo = () => {
+    if (uploadedVideo) {
+      URL.revokeObjectURL(uploadedVideo);
+    }
+    setUploadedVideo(null);
+    setIsVideoMode(false);
+    setCurrentResult(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const analyzeImageWithOpenAI = async (base64Image: string): Promise<DetectionResult> => {
@@ -308,6 +388,12 @@ Return ONLY the JSON object.`,
   const startMonitoring = async () => {
     try {
       setCameraError(null);
+      
+      // Clear any uploaded video when starting live monitoring
+      if (uploadedVideo) {
+        clearUploadedVideo();
+      }
+      
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: 640, height: 480 },
       });
@@ -322,6 +408,7 @@ Return ONLY the JSON object.`,
       }
 
       setIsMonitoring(true);
+      setIsVideoMode(false);
       
       // Wait 3 seconds for camera to stabilize before first analysis
       setTimeout(() => {
@@ -396,142 +483,225 @@ Return ONLY the JSON object.`,
 
   return (
     <div className="space-y-6">
-      {/* Camera Section */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-2xl font-bold text-slate-800 mb-4 text-center">
-          Live Camera Monitor
-        </h2>
+      {/* Video Upload Button - Fixed in top right corner */}
+      <div className="fixed top-20 right-4 z-20">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="video/*"
+          onChange={handleVideoUpload}
+          className="hidden"
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white p-4 rounded-full shadow-xl transition-all hover:scale-110 border-2 border-white"
+          title="Upload Video for Analysis"
+        >
+          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Camera/Video Section */}
+      <div className="bg-gradient-to-br from-white to-slate-50 rounded-2xl shadow-xl border border-slate-200 p-8">
+        <div className="flex items-center justify-center mb-6 relative">
+          <h2 className="text-3xl font-bold text-slate-800 text-center">
+            {isVideoMode ? "📹 Video Analysis" : "🎥 Live Camera Monitor"}
+          </h2>
+          {isVideoMode && (
+            <button
+              onClick={clearUploadedVideo}
+              className="absolute right-0 px-4 py-2 bg-slate-500 text-white rounded-lg hover:bg-slate-600 transition-all shadow-md"
+            >
+              ✕ Clear Video
+            </button>
+          )}
+        </div>
         
-        <div className="space-y-4">
-          <div className="relative rounded-lg overflow-hidden">
+        <div className="space-y-6">
+          <div className="relative rounded-2xl overflow-hidden bg-slate-100 p-4">
             <video
               ref={videoRef}
-              autoPlay
+              autoPlay={!isVideoMode}
               playsInline
-              muted
-              className={`w-full max-w-2xl mx-auto ${getAlertStyle()} transition-all`}
+              muted={!isVideoMode}
+              controls={isVideoMode}
+              src={uploadedVideo || undefined}
+              className={`w-full max-w-3xl mx-auto block rounded-xl ${
+                isMonitoring || isVideoMode 
+                  ? `border-4 ${getAlertStyle() || 'border-blue-500'} shadow-2xl` 
+                  : 'border-4 border-slate-300'
+              } transition-all duration-300 ease-in-out`}
+              style={{ minHeight: '360px', backgroundColor: '#f1f5f9' }}
             />
             <canvas ref={canvasRef} className="hidden" />
             
             {currentResult && (
-              <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white/90 px-6 py-3 rounded-lg shadow-lg">
-                <div className="flex items-center gap-3">
-                  <span className={`text-2xl font-bold ${getStateColor()}`}>
+              <div className="absolute top-6 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-sm px-6 py-4 rounded-xl shadow-xl border-2 border-white">
+                <div className="flex items-center gap-4">
+                  <span className={`text-xl font-bold ${getStateColor()}`}>
                     {getStateText()}
                   </span>
-                  <span className="text-slate-600 font-medium">
-                    {currentResult.confidence}% confidence
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                    <span className="text-slate-700 font-semibold">
+                      {currentResult.confidence}% confidence
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
           {cameraError && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
-              {cameraError}
+            <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6 text-red-700 text-center">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <span className="text-2xl">⚠️</span>
+                <span className="font-semibold">Camera Error</span>
               </div>
-            )}
+              <p className="text-sm">{cameraError}</p>
+            </div>
+          )}
             
-          <div className="flex justify-center gap-4">
-            {!isMonitoring ? (
+          <div className="flex justify-center gap-6 flex-wrap">
+            {!isVideoMode && !isMonitoring && (
               <button
                 onClick={startMonitoring}
-                className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow"
+                className="px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold rounded-xl hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
               >
-                📹 Start Monitoring
+                <span className="flex items-center gap-3">
+                  <span className="text-xl">📹</span>
+                  Start Live Monitoring
+                </span>
               </button>
-            ) : (
-            <button
+            )}
+            
+            {!isVideoMode && isMonitoring && (
+              <button
                 onClick={stopMonitoring}
                 disabled={isAnalyzing}
-                className="px-6 py-3 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow"
-            >
-                🛑 Stop Monitoring
-            </button>
+                className="px-8 py-4 bg-gradient-to-r from-red-600 to-red-700 text-white font-bold rounded-xl hover:from-red-700 hover:to-red-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+              >
+                <span className="flex items-center gap-3">
+                  <span className="text-xl">🛑</span>
+                  Stop Monitoring
+                </span>
+              </button>
+            )}
+            
+            {isVideoMode && uploadedVideo && (
+              <button
+                onClick={analyzeUploadedVideo}
+                disabled={isAnalyzing}
+                className="px-8 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white font-bold rounded-xl hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+              >
+                <span className="flex items-center gap-3">
+                  <span className="text-xl">🔍</span>
+                  Analyze Video
+                </span>
+              </button>
             )}
           </div>
 
           {isAnalyzing && (
-            <div className="text-center">
-              <div className="inline-flex items-center gap-2 text-blue-600">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-                Analyzing...
+            <div className="text-center bg-blue-50 rounded-xl p-6 border-2 border-blue-200">
+              <div className="inline-flex items-center gap-3 text-blue-700">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                <span className="font-semibold text-lg">
+                  {isVideoMode ? "🎬 Analyzing video..." : "🔍 Analyzing live feed..."}
+                </span>
               </div>
             </div>
-            )}
+          )}
         </div>
       </div>
 
       {/* Results Section */}
       {currentResult && (
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-2xl font-bold text-slate-800 mb-4 text-center">
-            Current Status
+        <div className="bg-gradient-to-br from-white to-slate-50 rounded-2xl shadow-xl border border-slate-200 p-8">
+          <h2 className="text-3xl font-bold text-slate-800 mb-6 text-center flex items-center justify-center gap-3">
+            <span className="text-4xl">📊</span>
+            Analysis Results
           </h2>
           
-          <div className="space-y-4">
-            <div className="p-6 bg-slate-50 rounded-lg border-2 border-slate-200">
-              <div className="grid md:grid-cols-3 gap-4 mb-4">
-                <div className="text-center">
-                  <div className={`text-2xl font-bold mb-2 ${
+          <div className="space-y-6">
+            <div className="p-8 bg-white rounded-2xl border-2 border-slate-200 shadow-lg">
+              <div className="grid md:grid-cols-3 gap-6 mb-6">
+                <div className="text-center p-4 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200">
+                  <div className={`text-3xl font-bold mb-3 ${
                     currentResult.isDrunk ? "text-red-600" : "text-slate-400"
                   }`}>
-                    {currentResult.isDrunk ? "🍺 Intoxicated" : "✓ Sober"}
+                    {currentResult.isDrunk ? "🍺 Intoxicated" : "✅ Sober"}
                   </div>
+                  <div className="text-sm text-slate-600 font-medium">Alcohol Detection</div>
                 </div>
-                <div className="text-center">
-                  <div className={`text-2xl font-bold mb-2 ${
+                <div className="text-center p-4 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200">
+                  <div className={`text-3xl font-bold mb-3 ${
                     currentResult.isSleepy ? "text-orange-600" : "text-slate-400"
                   }`}>
-                    {currentResult.isSleepy ? "😴 Sleepy" : "✓ Alert"}
+                    {currentResult.isSleepy ? "😴 Sleepy" : "✅ Alert"}
                   </div>
+                  <div className="text-sm text-slate-600 font-medium">Drowsiness Detection</div>
                 </div>
-                <div className="text-center">
-                  <div className={`text-2xl font-bold mb-2 ${
+                <div className="text-center p-4 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200">
+                  <div className={`text-3xl font-bold mb-3 ${
                     currentResult.isDistracted ? "text-yellow-600" : "text-slate-400"
                   }`}>
-                    {currentResult.isDistracted ? "📱 Distracted" : "✓ Focused"}
+                    {currentResult.isDistracted ? "📱 Distracted" : "✅ Focused"}
                   </div>
+                  <div className="text-sm text-slate-600 font-medium">Attention Detection</div>
                 </div>
               </div>
               
-              <div className="mb-4">
-                <p className="font-semibold text-slate-700 mb-2">Confidence Score</p>
-                <div className="bg-white rounded-lg p-3">
-                    <div className="flex items-center justify-between">
-                    <span className="text-2xl font-bold text-blue-600">{currentResult.confidence}%</span>
-                    <div className="w-32 bg-slate-200 rounded-full h-2">
+              <div className="mb-6">
+                <p className="font-bold text-slate-700 mb-4 text-lg flex items-center gap-2">
+                  <span className="text-xl">🎯</span>
+                  Confidence Score
+                </p>
+                <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl p-6 border border-slate-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-3xl font-bold text-blue-600">{currentResult.confidence}%</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-slate-600 font-medium">Accuracy</span>
+                      <div className="w-40 bg-slate-300 rounded-full h-3 shadow-inner">
                         <div
-                        className="bg-blue-600 h-2 rounded-full transition-all"
+                          className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-500 shadow-sm"
                           style={{ width: `${currentResult.confidence}%` }}
                         ></div>
                       </div>
                     </div>
                   </div>
                 </div>
+              </div>
                 
               {currentResult.indicators.length > 0 && (
                 <div>
-                  <p className="font-semibold text-slate-700 mb-2">Indicators Detected</p>
-                  <div className="bg-white rounded-lg p-3">
-                      <ul className="space-y-1">
+                  <p className="font-bold text-slate-700 mb-4 text-lg flex items-center gap-2">
+                    <span className="text-xl">🔍</span>
+                    Indicators Detected
+                  </p>
+                  <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl p-6 border border-slate-200">
+                    <ul className="space-y-3">
                       {currentResult.indicators.map((indicator, index) => (
-                        <li key={index} className="text-sm text-slate-600 flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 bg-blue-600 rounded-full"></span>
-                            {indicator}
-                          </li>
-                        ))}
-                      </ul>
+                        <li key={index} className="text-slate-700 flex items-center gap-3 p-2 bg-white rounded-lg shadow-sm">
+                          <span className="w-3 h-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex-shrink-0"></span>
+                          <span className="font-medium capitalize">{indicator}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 </div>
               )}
             </div>
 
             {((currentResult.isDrunk || currentResult.isSleepy || currentResult.isDistracted) && currentResult.confidence >= 30) && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <h4 className="font-bold text-red-800 mb-2">⚠️ Safety Warning</h4>
-                <p className="text-red-700 text-sm">
+              <div className="bg-gradient-to-r from-red-50 to-red-100 border-2 border-red-300 rounded-xl p-6 shadow-lg">
+                <h4 className="font-bold text-red-800 mb-3 text-xl flex items-center gap-3">
+                  <span className="text-2xl animate-pulse">⚠️</span>
+                  Safety Warning
+                </h4>
+                <p className="text-red-700 leading-relaxed">
                   Signs of impairment have been detected. Please do not operate a vehicle.
                   Use alternative transportation like rideshare services or public transit.
                 </p>
