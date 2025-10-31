@@ -1,4 +1,4 @@
-# SafeDrive AI Detector - PWA
+# DriveSafe AI Detector - PWA
 
 An AI-powered Progressve Web App (PWA) for real-time impairment detection using OpenAI GPT-4 Vision.
 
