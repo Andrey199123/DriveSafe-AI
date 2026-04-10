@@ -47,15 +47,15 @@ function Content() {
             Welcome back, {loggedInUser?.email ?? "friend"}!
           </p>
           <p className="text-slate-500 text-sm sm:text-base">
-            Hands-free driver alert system to keep roads safe
+            Driver-safety assistance for attention and fatigue awareness
           </p>
         </Authenticated>
         <Unauthenticated>
           <p className="text-base sm:text-xl text-slate-600 mb-2">
-            Advanced AI Detection System
+            AI-assisted driver safety monitor
           </p>
           <p className="text-slate-500 mb-6 text-sm sm:text-base">
-            Sign in to use our hands-free driver alert technology
+            Sign in to test camera-based safety alerts and upload analysis
           </p>
         </Unauthenticated>
       </div>

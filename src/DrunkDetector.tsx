@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
+import { useAction } from "convex/react";
 import { haversineDistanceMeters, mpsToMph, parseMaxspeedToMph } from "./lib/utils";
 import { toast } from "sonner";
+import { api } from "../convex/_generated/api";
 
 interface DetectionResult {
   isDrunk: boolean;
@@ -12,6 +14,7 @@ interface DetectionResult {
 }
 
 export function DrunkDetector() {
+  const analyzeFrame = useAction(api.ai.analyzeFrame);
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [currentResult, setCurrentResult] = useState<DetectionResult | null>(null);
@@ -313,184 +316,7 @@ export function DrunkDetector() {
   };
 
   const analyzeImageWithOpenAI = async (base64Image: string): Promise<DetectionResult> => {
-    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error("OpenAI API key not found in environment variables");
-    }
-
-    if (!apiKey.startsWith('sk-')) {
-      throw new Error("Invalid OpenAI API key format - should start with 'sk-'");
-    }
-
-    console.log("Starting OpenAI analysis...", `API key: ${apiKey.substring(0, 7)}...${apiKey.substring(apiKey.length - 4)}`);
-    
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: "You are a computer vision system that analyzes images and returns structured data about visual features. Focus only on observable visual characteristics."
-          },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `Perform computer vision analysis on this image to detect facial and eye characteristics. Return ONLY a JSON object with these visual observations:
-{
-  "eyesRed": true or false,
-  "eyesGlassy": true or false,
-  "eyesHalfClosed": true or false,
-  "eyesClosed": true or false,
-  "faceRed": true or false,
-  "lookingAway": true or false,
-  "confidence": number 0-100
-}
-
-Detect these visual features:
-- eyesRed: Are the eyes red in color?
-- eyesGlassy: Do the eyes have a glassy/reflective appearance?
-- eyesHalfClosed: Are the eyelids partially closed?
-- eyesClosed: Are the eyes completely closed?
-- faceRed: Is the face flushed or red?
-- lookingAway: Is the person looking away from the camera?
-- confidence: Your confidence in these visual observations (0-100)
-
-Return ONLY the JSON object.`,
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: base64Image,
-                },
-              },
-            ],
-          },
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 200,
-        temperature: 0.3,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("OpenAI API error:", response.status, errorText);
-      
-      // Log specific error types
-      if (response.status === 429) {
-        console.error("Rate limited by OpenAI - try increasing interval");
-      } else if (response.status === 400) {
-        console.error("Bad request - possibly content filter");
-      }
-      
-      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
-    }
-
-    const result = await response.json();
-    console.log("Full OpenAI response:", result);
-    
-    const message = result.choices?.[0]?.message;
-    const content = message?.content;
-    const refusal = message?.refusal;
-    
-    console.log("OpenAI message content:", content);
-    
-    // Check for refusal first
-    if (refusal) {
-      console.error("OpenAI refused the request:", refusal);
-      throw new Error(`OpenAI refused the request: ${refusal}`);
-    }
-    
-    if (!content) {
-      console.error("OpenAI response breakdown:");
-      console.error("- choices array:", result.choices);
-      console.error("- first choice:", result.choices?.[0]);
-      console.error("- message:", result.choices?.[0]?.message);
-      console.error("- finish_reason:", result.choices?.[0]?.finish_reason);
-      
-      if (result.error) {
-        console.error("OpenAI error:", result.error);
-        throw new Error(`OpenAI API error: ${result.error.message}`);
-      }
-      
-      throw new Error("OpenAI returned empty response - possibly rate limited or filtered");
-    }
-
-    try {
-      // Clean the content - remove markdown code blocks if present
-      let cleanContent = content.trim();
-      
-      // Remove ```json and ``` markers
-      if (cleanContent.includes('```json')) {
-        cleanContent = cleanContent.replace(/```json\n?/, '').replace(/```\n?$/, '').trim();
-      } else if (cleanContent.includes('```')) {
-        cleanContent = cleanContent.replace(/```\n?/, '').replace(/```\n?$/, '').trim();
-      }
-      
-      const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error("No JSON found in response");
-      }
-      
-      const parsed = JSON.parse(jsonMatch[0]);
-      console.log("Parsed result:", parsed);
-      
-      // Convert visual characteristics to detection results
-      const eyesRed = parsed.eyesRed ?? false;
-      const eyesGlassy = parsed.eyesGlassy ?? false;
-      const eyesHalfClosed = parsed.eyesHalfClosed ?? false;
-      const eyesClosed = parsed.eyesClosed ?? false;
-      const faceRed = parsed.faceRed ?? false;
-      const lookingAway = parsed.lookingAway ?? false;
-      
-      // Derive states from visual characteristics
-      const isDrunk = (eyesRed || eyesGlassy) && (faceRed || eyesHalfClosed);
-      const isSleepy = eyesClosed || eyesHalfClosed;
-      const isDistracted = lookingAway;
-      
-      // Build indicators list
-      const indicators: string[] = [];
-      if (eyesRed) indicators.push("red eyes");
-      if (eyesGlassy) indicators.push("glassy eyes");
-      if (eyesHalfClosed) indicators.push("droopy eyelids");
-      if (eyesClosed) indicators.push("eyes closed");
-      if (faceRed) indicators.push("facial redness");
-      if (lookingAway) indicators.push("looking away");
-      
-      // Determine primary state
-      let state: "drunk" | "sleepy" | "distracted" | "normal" = "normal";
-      if (isDrunk) state = "drunk";
-      else if (isSleepy) state = "sleepy";
-      else if (isDistracted) state = "distracted";
-      
-      const result: DetectionResult = {
-        isDrunk,
-        isSleepy,
-        isDistracted,
-        confidence: parsed.confidence ?? 75,
-        indicators,
-        state
-      };
-      
-      return result;
-    } catch (error) {
-      console.error("Failed to parse OpenAI response:", error);
-      return {
-        isDrunk: false,
-        isSleepy: false,
-        isDistracted: false,
-        confidence: 0,
-        indicators: ["Analysis failed - unable to determine"],
-        state: "normal",
-      };
-    }
+    return analyzeFrame({ base64Image });
   };
 
   const analyzeCurrentFrame = async () => {
@@ -688,11 +514,11 @@ Return ONLY the JSON object.`,
     if (!currentResult) return "";
     
     if (currentResult.isDrunk && currentResult.confidence >= 30) {
-      return "⚠️ DRUNK DETECTED";
+      return "⚠️ POSSIBLE IMPAIRMENT";
     } else if (currentResult.isSleepy && currentResult.confidence >= 30) {
-      return "⚠️ SLEEPY DETECTED";
+      return "⚠️ POSSIBLE DROWSINESS";
     } else if (currentResult.isDistracted && currentResult.confidence >= 30) {
-      return "⚠️ DISTRACTED DETECTED";
+      return "⚠️ POSSIBLE DISTRACTION";
     }
     return "✅ NORMAL";
   };
@@ -900,6 +726,9 @@ Return ONLY the JSON object.`,
               Keep your eyes on the road. You do not need to look at the camera.
             </p>
           )}
+          <p className="text-center text-slate-500 text-xs sm:text-sm">
+            This tool provides heuristic safety alerts and is not a sobriety, medical, or law-enforcement assessment.
+          </p>
         </div>
       </div>
 
@@ -918,9 +747,9 @@ Return ONLY the JSON object.`,
                   <div className={`text-3xl font-bold mb-3 ${
                     currentResult.isDrunk ? "text-red-600" : "text-slate-400"
                   }`}>
-                    {currentResult.isDrunk ? "🍺 Intoxicated" : "✅ Sober"}
+                    {currentResult.isDrunk ? "🍺 Possible Alcohol Signs" : "✅ No Alcohol Signs"}
                   </div>
-                  <div className="text-sm text-slate-600 font-medium">Alcohol Detection</div>
+                  <div className="text-sm text-slate-600 font-medium">Alcohol-Related Visual Cues</div>
                 </div>
                 <div className="text-center p-4 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200">
                   <div className={`text-3xl font-bold mb-3 ${
@@ -949,7 +778,7 @@ Return ONLY the JSON object.`,
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-3xl font-bold text-blue-600">{currentResult.confidence}%</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-slate-600 font-medium">Accuracy</span>
+                      <span className="text-sm text-slate-600 font-medium">Model Confidence</span>
                       <div className="w-40 bg-slate-300 rounded-full h-3 shadow-inner">
                         <div
                           className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-500 shadow-sm"
@@ -988,7 +817,7 @@ Return ONLY the JSON object.`,
                   Safety Warning
                 </h4>
                 <p className="text-red-700 leading-relaxed">
-                  Signs of impairment have been detected. Please do not operate a vehicle.
+                  Possible impairment-related signs were detected. Please do not operate a vehicle.
                   Use alternative transportation like rideshare services or public transit.
                 </p>
               </div>

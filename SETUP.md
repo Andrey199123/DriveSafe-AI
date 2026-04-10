@@ -5,17 +5,21 @@
 1. **Create `.env.local` file** in the root directory:
    ```env
    VITE_CONVEX_URL=your_convex_url_here
-   VITE_OPENAI_API_KEY=your_openai_api_key_here
    ```
 
-2. **Generate PWA icons:**
+2. **Set the backend OpenAI key in Convex**:
+   ```bash
+   npx convex env set OPENAI_API_KEY your_openai_api_key_here
+   ```
+
+3. **Generate PWA icons:**
    ```bash
    # Open public/icon-preview.html in a browser
    # Take screenshots and save as icon-{size}.png
    # Or use an online tool: https://realfavicongenerator.net/
    ```
 
-3. **Install and run:**
+4. **Install and run:**
    ```bash
    npm install
    npm run dev
@@ -25,8 +29,8 @@
 
 ### 1. OpenAI GPT-4 Vision Integration
 - Replaced Gemini API with OpenAI GPT-4 Vision
-- Client-side API calls using `VITE_OPENAI_API_KEY`
-- Direct base64 encoding from canvas (no Convex uploads)
+- Server-side proxying through Convex using `OPENAI_API_KEY`
+- Direct base64 encoding from canvas with secure backend forwarding
 
 ### 2. Live Camera Monitoring
 - Continuous webcam feed with automatic frame capture
@@ -82,9 +86,34 @@ if ((result.isDrunk || result.isSleepy || result.isDistracted) && result.confide
 
 For production deployment:
 1. Update Convex deployment URL in `.env.local`
-2. Generate proper PWA icons (replace placeholders)
-3. Test service worker functionality
-4. Deploy to your hosting platform
+2. Set `OPENAI_API_KEY` in Convex for the production deployment
+3. Generate proper PWA icons (replace placeholders)
+4. Test service worker functionality
+5. Deploy to your hosting platform
+
+## iOS Packaging
+
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Build the web bundle:
+   ```bash
+   npm run build
+   ```
+3. Create the iOS project:
+   ```bash
+   npm run ios:add
+   ```
+4. Sync the latest web assets:
+   ```bash
+   npm run cap:sync:ios
+   ```
+5. Open the native project in Xcode:
+   ```bash
+   npm run ios:open
+   ```
+6. In Xcode, set signing, verify camera and location permission strings, then run on a physical iPhone.
 
 ## Troubleshooting
 
@@ -93,7 +122,7 @@ For production deployment:
 - Ensure HTTPS in production (required for camera access)
 
 **OpenAI API errors:**
-- Verify API key is set in `.env.local`
+- Verify `OPENAI_API_KEY` is set in Convex
 - Check API quota/billing
 - Review console logs for detailed errors
 
