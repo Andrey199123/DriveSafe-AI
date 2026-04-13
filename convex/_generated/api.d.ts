@@ -13,6 +13,7 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+import type * as ai from "../ai.js";
 import type * as auth from "../auth.js";
 import type * as detections from "../detections.js";
 import type * as http from "../http.js";
@@ -27,6 +28,7 @@ import type * as router from "../router.js";
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  ai: typeof ai;
   auth: typeof auth;
   detections: typeof detections;
   http: typeof http;
