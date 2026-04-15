@@ -18,6 +18,7 @@ import type * as auth from "../auth.js";
 import type * as detections from "../detections.js";
 import type * as http from "../http.js";
 import type * as router from "../router.js";
+import type * as usage from "../usage.js";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -33,6 +34,7 @@ declare const fullApi: ApiFromModules<{
   detections: typeof detections;
   http: typeof http;
   router: typeof router;
+  usage: typeof usage;
 }>;
 export declare const api: FilterApi<
   typeof fullApi,

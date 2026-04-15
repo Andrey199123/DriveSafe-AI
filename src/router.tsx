@@ -1,0 +1,56 @@
+import { createBrowserRouter, Navigate } from "react-router-dom";
+import { lazy, Suspense } from "react";
+import RootLayout from "./layouts/RootLayout";
+import RouteErrorBoundary from "./components/RouteErrorBoundary";
+
+// Lazy load page components for code splitting
+const LandingPage = lazy(() => import("./pages/LandingPage"));
+const MonitoringPage = lazy(() => import("./pages/MonitoringPage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+
+// Loading indicator component
+function PageLoader() {
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center">
+      <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#d9d3c7] border-t-[#1a7457]"></div>
+    </div>
+  );
+}
+
+export const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <RootLayout />,
+    errorElement: <RouteErrorBoundary />,
+    children: [
+      {
+        index: true,
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <LandingPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "monitor",
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <MonitoringPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "settings",
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <SettingsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "*",
+        element: <Navigate to="/" replace />,
+      },
+    ],
+  },
+]);

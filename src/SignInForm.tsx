@@ -9,9 +9,42 @@ export function SignInForm() {
   const [submitting, setSubmitting] = useState(false);
 
   return (
-    <div className="w-full">
+    <div className="site-panel w-full p-8 sm:p-10">
+      <p className="site-eyebrow">Access</p>
+      <h2 className="mt-4 text-3xl font-black tracking-[-0.04em] text-[#111827]">
+        Enter the monitor
+      </h2>
+      <p className="mt-4 text-base leading-7 text-slate-500">
+        Use an email and password for a persistent account, or open a guest session for quick testing.
+      </p>
+
+      <div className="mt-8 inline-flex rounded-full bg-[#f6f4ee] p-1">
+        <button
+          type="button"
+          className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+            flow === "signIn"
+              ? "bg-[#111827] text-white"
+              : "text-slate-500 hover:text-[#111827]"
+          }`}
+          onClick={() => setFlow("signIn")}
+        >
+          Sign in
+        </button>
+        <button
+          type="button"
+          className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+            flow === "signUp"
+              ? "bg-[#111827] text-white"
+              : "text-slate-500 hover:text-[#111827]"
+          }`}
+          onClick={() => setFlow("signUp")}
+        >
+          Create account
+        </button>
+      </div>
+
       <form
-        className="flex flex-col gap-form-field"
+        className="mt-6 flex flex-col gap-4"
         onSubmit={(e) => {
           e.preventDefault();
           setSubmitting(true);
@@ -24,8 +57,8 @@ export function SignInForm() {
             } else {
               toastTitle =
                 flow === "signIn"
-                  ? "Could not sign in, did you mean to sign up?"
-                  : "Could not sign up, did you mean to sign in?";
+                  ? "Could not sign in, did you mean to create an account?"
+                  : "Could not create an account, did you mean to sign in?";
             }
             toast.error(toastTitle);
             setSubmitting(false);
@@ -47,31 +80,32 @@ export function SignInForm() {
           required
         />
         <button className="auth-button" type="submit" disabled={submitting}>
-          {flow === "signIn" ? "Sign in" : "Sign up"}
+          {submitting
+            ? flow === "signIn"
+              ? "Signing in"
+              : "Creating account"
+            : flow === "signIn"
+              ? "Sign in"
+              : "Create account"}
         </button>
-        <div className="text-center text-sm text-slate-600">
-          <span>
-            {flow === "signIn"
-              ? "Don't have an account? "
-              : "Already have an account? "}
-          </span>
-          <button
-            type="button"
-            className="text-blue-600 hover:text-blue-700 hover:underline font-medium cursor-pointer"
-            onClick={() => setFlow(flow === "signIn" ? "signUp" : "signIn")}
-          >
-            {flow === "signIn" ? "Sign up instead" : "Sign in instead"}
-          </button>
-        </div>
       </form>
-      <div className="flex items-center justify-center my-3">
-        <hr className="my-4 grow border-slate-300" />
-        <span className="mx-4 text-slate-500">or</span>
-        <hr className="my-4 grow border-slate-300" />
+
+      <div className="my-6 flex items-center justify-center gap-4">
+        <hr className="grow border-[#e8e5de]" />
+        <span className="text-sm text-slate-400">or</span>
+        <hr className="grow border-[#e8e5de]" />
       </div>
-      <button className="auth-button" onClick={() => void signIn("anonymous")}>
-        Sign in anonymously
+
+      <button
+        className="site-secondary-button w-full"
+        onClick={() => void signIn("anonymous")}
+      >
+        Continue anonymously
       </button>
+
+      <p className="mt-4 text-sm leading-6 text-slate-500">
+        Anonymous access is available for monitoring. The shared usage dashboard stays inside settings behind its own password.
+      </p>
     </div>
   );
 }

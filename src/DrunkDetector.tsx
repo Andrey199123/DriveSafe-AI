@@ -13,6 +13,69 @@ interface DetectionResult {
   state: "drunk" | "sleepy" | "distracted" | "normal";
 }
 
+type AnalysisSource = "live_camera" | "uploaded_image" | "uploaded_video";
+type AlertTone = "speed" | "impairment";
+
+interface GeoSample {
+  lat: number;
+  lon: number;
+  t: number;
+  accuracy: number;
+}
+
+const GEO_FALLBACK_INTERVAL_MS = 4000;
+const GEO_FALLBACK_STALE_MS = 3500;
+const MIN_COMPUTED_SPEED_INTERVAL_MS = 3000;
+const MIN_DISTANCE_FOR_SPEED_ESTIMATE_METERS = 20;
+const SPEED_SMOOTHING_WINDOW = 4;
+const STATIONARY_SPEED_THRESHOLD_MPH = 3;
+const OVERSPEED_BUFFER_MPH = 3;
+const OVERSPEED_CONFIRMATION_SAMPLES = 3;
+const PREFERRED_ALERT_VOICE_NAMES = [
+  "samantha",
+  "ava",
+  "allison",
+  "susan",
+  "karen",
+  "victoria",
+  "alex",
+  "daniel",
+  "fred",
+  "tom",
+];
+
+const DISTRACTION_THRESHOLD = 3; // Number of detections before voice alert
+const DISTRACTION_COOLDOWN_MS = 5000; // 5 seconds between distraction counts
+
+function scoreAlertVoice(voice: SpeechSynthesisVoice) {
+  const name = voice.name.toLowerCase();
+  const lang = voice.lang.toLowerCase();
+  let score = 0;
+
+  // Strongly prefer local voices for better quality
+  if (voice.localService) score += 10;
+  
+  // Prefer US English, then any English
+  if (lang.startsWith("en-us")) score += 8;
+  else if (lang.startsWith("en-gb")) score += 6;
+  else if (lang.startsWith("en")) score += 4;
+
+  // Prefer specific high-quality voices
+  PREFERRED_ALERT_VOICE_NAMES.forEach((preferredName, index) => {
+    if (name.includes(preferredName)) {
+      score += (PREFERRED_ALERT_VOICE_NAMES.length - index) * 2;
+    }
+  });
+
+  // Avoid low-quality voices
+  if (name.includes("compact")) score -= 5;
+  if (name.includes("novelty")) score -= 10;
+  if (name.includes("enhanced")) score += 3;
+  if (name.includes("premium")) score += 3;
+
+  return score;
+}
+
 export function DrunkDetector() {
   const analyzeFrame = useAction(api.ai.analyzeFrame);
   const [isMonitoring, setIsMonitoring] = useState(false);
@@ -28,9 +91,15 @@ export function DrunkDetector() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastAlertTimeRef = useRef<number>(0);
   const lastSpeedAlertTimeRef = useRef<number>(0);
+  const overSpeedSampleCountRef = useRef<number>(0);
+  const distractionCountRef = useRef<number>(0);
+  const sessionStartTimeRef = useRef<number>(Date.now());
   const geoWatchIdRef = useRef<number | null>(null);
-  const lastGeoSampleRef = useRef<{ lat: number; lon: number; t: number } | null>(null);
+  const lastGeoSampleRef = useRef<GeoSample | null>(null);
+  const lastGeoUpdateAtRef = useRef<number>(0);
   const lastLimitFetchRef = useRef<number>(0);
+  const speedSamplesRef = useRef<number[]>([]);
+  const preferredVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const [currentSpeedMph, setCurrentSpeedMph] = useState<number | null>(null);
   const [speedLimitMph, setSpeedLimitMph] = useState<number | null>(null);
   const geoPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -40,6 +109,26 @@ export function DrunkDetector() {
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission();
     }
+  }, []);
+
+  useEffect(() => {
+    if (!("speechSynthesis" in window)) return;
+    const speech = window.speechSynthesis;
+
+    const selectPreferredVoice = () => {
+      const voices = speech.getVoices();
+      if (!voices.length) return;
+      preferredVoiceRef.current = [...voices].sort(
+        (a, b) => scoreAlertVoice(b) - scoreAlertVoice(a),
+      )[0] ?? null;
+    };
+
+    selectPreferredVoice();
+    speech.addEventListener("voiceschanged", selectPreferredVoice);
+
+    return () => {
+      speech.removeEventListener("voiceschanged", selectPreferredVoice);
+    };
   }, []);
 
   // Cleanup on unmount
@@ -64,21 +153,65 @@ export function DrunkDetector() {
   // Geolocation and speed tracking
   useEffect(() => {
     if (!('geolocation' in navigator)) return;
+
+    const updateSmoothedSpeed = (nextSpeedMph: number) => {
+      const boundedSpeed = Math.max(0, nextSpeedMph);
+      speedSamplesRef.current.push(boundedSpeed);
+      if (speedSamplesRef.current.length > SPEED_SMOOTHING_WINDOW) {
+        speedSamplesRef.current.shift();
+      }
+
+      const averageSpeed =
+        speedSamplesRef.current.reduce((sum, value) => sum + value, 0) /
+        speedSamplesRef.current.length;
+      const roundedSpeed = Math.round(averageSpeed * 10) / 10;
+      setCurrentSpeedMph(roundedSpeed < STATIONARY_SPEED_THRESHOLD_MPH ? 0 : roundedSpeed);
+    };
+
     const handlePosition = (pos: GeolocationPosition) => {
       const { latitude: lat, longitude: lon, speed } = pos.coords;
+      const accuracy = Math.max(pos.coords.accuracy ?? 0, 0);
       const timestamp = pos.timestamp;
+      const previousSample = lastGeoSampleRef.current;
+      const nativeSpeedMph =
+        typeof speed === "number" && !Number.isNaN(speed) && speed >= 0
+          ? mpsToMph(speed)
+          : null;
+      let computedSpeedMph = 0;
 
-      if (typeof speed === 'number' && !Number.isNaN(speed)) {
-        setCurrentSpeedMph(Math.max(0, Math.round(mpsToMph(speed) * 10) / 10));
-      } else if (lastGeoSampleRef.current) {
-        const dt = (timestamp - lastGeoSampleRef.current.t) / 1000;
-        if (dt > 0) {
-          const dist = haversineDistanceMeters(lastGeoSampleRef.current.lat, lastGeoSampleRef.current.lon, lat, lon);
-          const v = dist / dt; // m/s
-          setCurrentSpeedMph(Math.max(0, Math.round(mpsToMph(v) * 10) / 10));
+      lastGeoUpdateAtRef.current = Date.now();
+
+      if (previousSample) {
+        const dtMs = timestamp - previousSample.t;
+        if (dtMs >= MIN_COMPUTED_SPEED_INTERVAL_MS) {
+          const distanceMeters = haversineDistanceMeters(
+            previousSample.lat,
+            previousSample.lon,
+            lat,
+            lon,
+          );
+          const jitterBufferMeters = Math.max(
+            MIN_DISTANCE_FOR_SPEED_ESTIMATE_METERS,
+            accuracy + previousSample.accuracy,
+          );
+          const adjustedDistanceMeters = Math.max(0, distanceMeters - jitterBufferMeters);
+
+          if (adjustedDistanceMeters > 0) {
+            computedSpeedMph = mpsToMph(adjustedDistanceMeters / (dtMs / 1000));
+          }
         }
       }
-      lastGeoSampleRef.current = { lat, lon, t: timestamp };
+
+      if (nativeSpeedMph !== null && computedSpeedMph === 0 && nativeSpeedMph < 8) {
+        updateSmoothedSpeed(0);
+      } else if (nativeSpeedMph !== null && computedSpeedMph > 0) {
+        updateSmoothedSpeed((nativeSpeedMph * 0.65) + (computedSpeedMph * 0.35));
+      } else if (nativeSpeedMph !== null) {
+        updateSmoothedSpeed(nativeSpeedMph);
+      } else {
+        updateSmoothedSpeed(computedSpeedMph);
+      }
+      lastGeoSampleRef.current = { lat, lon, t: timestamp, accuracy };
 
       const now = Date.now();
       if (now - lastLimitFetchRef.current > 30000 || speedLimitMph == null) {
@@ -96,12 +229,15 @@ export function DrunkDetector() {
 
     // Polling fallback to keep HUD lively on browsers that throttle watchPosition
     geoPollIntervalRef.current = setInterval(() => {
+      if (Date.now() - lastGeoUpdateAtRef.current < GEO_FALLBACK_STALE_MS) {
+        return;
+      }
       navigator.geolocation.getCurrentPosition(
         handlePosition,
         () => {},
         { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
       );
-    }, 1000);
+    }, GEO_FALLBACK_INTERVAL_MS);
 
     return () => {
       navigator.geolocation.clearWatch(watchId);
@@ -118,40 +254,53 @@ export function DrunkDetector() {
       if (!res.ok) return;
       const data = await res.json();
       const elements = Array.isArray(data.elements) ? data.elements : [];
-      let bestLimit: number | null = null;
+      let bestLimit: { mph: number; distanceMeters: number } | null = null;
       for (const el of elements) {
         const raw = el?.tags?.maxspeed as string | undefined;
         if (!raw) continue;
         const mph = parseMaxspeedToMph(raw);
         if (mph) {
-          bestLimit = mph;
-          break;
+          const centerLat = typeof el?.center?.lat === "number" ? el.center.lat : lat;
+          const centerLon = typeof el?.center?.lon === "number" ? el.center.lon : lon;
+          const distanceMeters = haversineDistanceMeters(lat, lon, centerLat, centerLon);
+          if (!bestLimit || distanceMeters < bestLimit.distanceMeters) {
+            bestLimit = { mph, distanceMeters };
+          }
         }
       }
-      if (bestLimit !== null) setSpeedLimitMph(Math.round(bestLimit));
+      if (bestLimit) setSpeedLimitMph(Math.round(bestLimit.mph));
     } catch {}
   };
 
   // Overspeed alerts
   useEffect(() => {
     if (currentSpeedMph == null || speedLimitMph == null) return;
-    if (currentSpeedMph > speedLimitMph) {
-      const now = Date.now();
-      if (now - lastSpeedAlertTimeRef.current > 60000) {
-        lastSpeedAlertTimeRef.current = now;
-        try {
-          if ("Notification" in window && Notification.permission === "granted") {
-            new Notification("⚠️ Over Speed Limit", {
-              body: `Speed ${Math.round(currentSpeedMph)}mph > Limit ${speedLimitMph}mph. Slow down.`,
-              icon: "/icon-192.png",
-              tag: "overspeed-alert",
-            });
-          }
-        } catch {}
-        toast.error("⚠️ Over speed limit — slow down");
-        playAlertSound();
-        speakAlert("Slow down. You are over the speed limit.");
-      }
+    if (currentSpeedMph <= speedLimitMph + OVERSPEED_BUFFER_MPH) {
+      overSpeedSampleCountRef.current = 0;
+      return;
+    }
+
+    overSpeedSampleCountRef.current += 1;
+    if (overSpeedSampleCountRef.current < OVERSPEED_CONFIRMATION_SAMPLES) {
+      return;
+    }
+
+    const now = Date.now();
+    if (now - lastSpeedAlertTimeRef.current > 60000) {
+      lastSpeedAlertTimeRef.current = now;
+      overSpeedSampleCountRef.current = 0;
+      try {
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification("Speed Limit Exceeded", {
+            body: `Speed ${Math.round(currentSpeedMph)}mph > Limit ${speedLimitMph}mph. Slow down.`,
+            icon: "/icon-192.png",
+            tag: "overspeed-alert",
+          });
+        }
+      } catch {}
+      toast.error("Speed limit exceeded. Slow down.");
+      playAlertSound();
+      speakAlert("Slow down. You're over the speed limit.", "speed");
     }
   }, [currentSpeedMph, speedLimitMph]);
 
@@ -242,11 +391,11 @@ export function DrunkDetector() {
         throw new Error("Failed to capture frame from video");
       }
 
-      const result = await analyzeImageWithOpenAI(base64Image);
+      const result = await analyzeImageWithVision(base64Image, "uploaded_video");
       setCurrentResult(result);
       
       if ((result.isDrunk || result.isSleepy || result.isDistracted) && result.confidence >= 30) {
-        toast.error(`⚠️ ${result.state.toUpperCase()} detected in video!`);
+        toast.error(`${result.state.toUpperCase()} detected in video.`);
       } else {
         toast.success('Video analysis complete - no impairment detected');
       }
@@ -283,11 +432,11 @@ export function DrunkDetector() {
       ctx.drawImage(img, 0, 0, width, height);
 
       const base64Image = canvas.toDataURL('image/jpeg', 0.9);
-      const result = await analyzeImageWithOpenAI(base64Image);
+      const result = await analyzeImageWithVision(base64Image, "uploaded_image");
       setCurrentResult(result);
 
       if ((result.isDrunk || result.isSleepy || result.isDistracted) && result.confidence >= 30) {
-        toast.error(`⚠️ ${result.state.toUpperCase()} detected in image!`);
+        toast.error(`${result.state.toUpperCase()} detected in image.`);
       } else {
         toast.success('Image analysis complete - no impairment detected');
       }
@@ -315,8 +464,11 @@ export function DrunkDetector() {
     }
   };
 
-  const analyzeImageWithOpenAI = async (base64Image: string): Promise<DetectionResult> => {
-    return analyzeFrame({ base64Image });
+  const analyzeImageWithVision = async (
+    base64Image: string,
+    source: AnalysisSource,
+  ): Promise<DetectionResult> => {
+    return analyzeFrame({ base64Image, source });
   };
 
   const analyzeCurrentFrame = async () => {
@@ -340,7 +492,7 @@ export function DrunkDetector() {
       while (!result && attempts < maxAttempts) {
         try {
           attempts++;
-          result = await analyzeImageWithOpenAI(base64Image);
+          result = await analyzeImageWithVision(base64Image, "live_camera");
           break;
         } catch (error) {
           console.warn(`Analysis attempt ${attempts} failed:`, (error as Error).message);
@@ -360,24 +512,58 @@ export function DrunkDetector() {
 
         // Check if any impairment detected (confidence threshold: 30%)
         if ((result.isDrunk || result.isSleepy || result.isDistracted) && result.confidence >= 30) {
-          // Show browser notification
-          if ("Notification" in window && Notification.permission === "granted") {
-            new Notification("⚠️ Impairment Detected", {
-              body: `${result.state.toUpperCase()}: ${result.indicators.join(", ")}`,
-              icon: "/icon-192.png",
-              tag: "impairment-alert",
-            });
-          }
-
-          // Show toast
-          toast.error(`⚠️ ${result.state.toUpperCase()} detected!`);
-
-          // Audible + spoken alert (rate limited to once per 60 seconds)
           const now = Date.now();
-          if (now - lastAlertTimeRef.current > 60000) {
-            lastAlertTimeRef.current = now;
-            playAlertSound();
-            speakAlert(`Warning. ${result.state} detected. Please pull over and do not drive.`);
+          
+          // Handle distraction with graduated response
+          if (result.isDistracted && !result.isDrunk && !result.isSleepy) {
+            // Only increment if enough time has passed since last detection
+            if (now - lastAlertTimeRef.current > DISTRACTION_COOLDOWN_MS) {
+              distractionCountRef.current += 1;
+              lastAlertTimeRef.current = now;
+              
+              if (distractionCountRef.current < DISTRACTION_THRESHOLD) {
+                // First 2 detections: subtle alert only
+                vibrateDevice();
+                playSubtleAlert();
+                toast.warning(`Attention reminder (${distractionCountRef.current}/${DISTRACTION_THRESHOLD})`);
+              } else {
+                // 3rd+ detection: full alert with voice
+                vibrateDevice();
+                playAlertSound();
+                toast.error(`DISTRACTED detected - multiple instances.`);
+                speakAlert("Warning. Distraction detected multiple times. Please pull over and do not drive.", "impairment");
+                
+                // Show browser notification
+                if ("Notification" in window && Notification.permission === "granted") {
+                  new Notification("Attention Warning", {
+                    body: `Multiple distraction instances detected: ${result.indicators.join(", ")}`,
+                    icon: "/icon-192.png",
+                    tag: "impairment-alert",
+                  });
+                }
+              }
+            }
+          } else {
+            // Drunk or sleepy: immediate full alert (rate limited to once per 60 seconds)
+            if (now - lastAlertTimeRef.current > 60000) {
+              lastAlertTimeRef.current = now;
+              
+              // Show browser notification
+              if ("Notification" in window && Notification.permission === "granted") {
+                new Notification("Attention Warning", {
+                  body: `${result.state.toUpperCase()}: ${result.indicators.join(", ")}`,
+                  icon: "/icon-192.png",
+                  tag: "impairment-alert",
+                });
+              }
+
+              // Show toast
+              toast.error(`${result.state.toUpperCase()} detected.`);
+
+              // Audible + spoken alert
+              playAlertSound();
+              speakAlert(`Warning. ${result.state} detected. Please pull over and do not drive.`, "impairment");
+            }
           }
         }
       }
@@ -412,29 +598,86 @@ export function DrunkDetector() {
     } catch {}
   };
 
-  const speakAlert = (text: string) => {
+  // Play a subtle attention sound for minor alerts
+  const playSubtleAlert = () => {
+    try {
+      const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const audioCtx = new AudioCtx();
+      const oscillator = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+      oscillator.connect(gain).connect(audioCtx.destination);
+      oscillator.start();
+      // single gentle beep
+      gain.gain.exponentialRampToValueAtTime(0.2, audioCtx.currentTime + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.2);
+      oscillator.stop(audioCtx.currentTime + 0.25);
+    } catch {}
+  };
+
+  // Vibrate device if supported
+  const vibrateDevice = () => {
+    try {
+      if ('vibrate' in navigator) {
+        // Pattern: vibrate 200ms, pause 100ms, vibrate 200ms
+        navigator.vibrate([200, 100, 200]);
+      }
+    } catch {}
+  };
+
+  const speakAlert = (text: string, tone: AlertTone = "impairment") => {
     try {
       if (!('speechSynthesis' in window)) return;
-      window.speechSynthesis.cancel();
+      const speech = window.speechSynthesis;
+      speech.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
-      utterance.volume = 1.0;
+      const preferredVoice = preferredVoiceRef.current;
+      if (preferredVoice) {
+        utterance.voice = preferredVoice;
+        utterance.lang = preferredVoice.lang;
+      } else {
+        utterance.lang = "en-US";
+      }
+      // Improved voice settings for more natural speech
+      utterance.rate = tone === "speed" ? 0.95 : 1.0;
+      utterance.pitch = tone === "speed" ? 1.0 : 1.0;
+      utterance.volume = 0.9;
       utterance.onerror = () => {
         // Retry once if it fails (common in PWA)
         setTimeout(() => {
           try {
-            window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+            const retryUtterance = new SpeechSynthesisUtterance(text);
+            if (preferredVoice) {
+              retryUtterance.voice = preferredVoice;
+              retryUtterance.lang = preferredVoice.lang;
+            } else {
+              retryUtterance.lang = "en-US";
+            }
+            retryUtterance.rate = utterance.rate;
+            retryUtterance.pitch = utterance.pitch;
+            retryUtterance.volume = utterance.volume;
+            speech.speak(retryUtterance);
           } catch {}
         }, 200);
       };
-      window.speechSynthesis.speak(utterance);
+      speech.speak(utterance);
     } catch {
       // Fallback: try without canceling
       try {
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1.0;
-        utterance.volume = 1.0;
+        const preferredVoice = preferredVoiceRef.current;
+        if (preferredVoice) {
+          utterance.voice = preferredVoice;
+          utterance.lang = preferredVoice.lang;
+        } else {
+          utterance.lang = "en-US";
+        }
+        utterance.rate = tone === "speed" ? 0.95 : 1.0;
+        utterance.pitch = tone === "speed" ? 1.0 : 1.0;
+        utterance.volume = 0.9;
         window.speechSynthesis.speak(utterance);
       } catch {}
     }
@@ -448,6 +691,10 @@ export function DrunkDetector() {
       if (uploadedVideo) {
         clearUploadedVideo();
       }
+      
+      // Reset distraction counter for new session
+      distractionCountRef.current = 0;
+      sessionStartTimeRef.current = Date.now();
       
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: 640, height: 480 },
@@ -495,335 +742,424 @@ export function DrunkDetector() {
 
     setIsMonitoring(false);
     setCurrentResult(null);
+    
+    // Reset distraction counter when stopping
+    distractionCountRef.current = 0;
   };
 
   const getAlertStyle = () => {
     if (!currentResult) return "";
     
     if (currentResult.isDrunk && currentResult.confidence >= 30) {
-      return "bg-red-500/30 border-red-600 border-4";
+      return "border-red-600";
     } else if (currentResult.isSleepy && currentResult.confidence >= 30) {
-      return "bg-orange-500/30 border-orange-500 border-4";
+      return "border-amber-500";
     } else if (currentResult.isDistracted && currentResult.confidence >= 30) {
-      return "bg-yellow-500/30 border-yellow-500 border-4";
+      return "border-yellow-500";
     }
-    return "";
+    return "border-[#1a7457]";
   };
 
   const getStateText = () => {
     if (!currentResult) return "";
     
     if (currentResult.isDrunk && currentResult.confidence >= 30) {
-      return "⚠️ POSSIBLE IMPAIRMENT";
+      return "Possible impairment";
     } else if (currentResult.isSleepy && currentResult.confidence >= 30) {
-      return "⚠️ POSSIBLE DROWSINESS";
+      return "Possible drowsiness";
     } else if (currentResult.isDistracted && currentResult.confidence >= 30) {
-      return "⚠️ POSSIBLE DISTRACTION";
+      return "Possible distraction";
     }
-    return "✅ NORMAL";
+    return "Normal";
   };
 
   const getStateColor = () => {
-    if (!currentResult) return "text-blue-600";
+    if (!currentResult) return "text-[#1a7457]";
     
     if (currentResult.isDrunk && currentResult.confidence >= 30) {
       return "text-red-600";
     } else if (currentResult.isSleepy && currentResult.confidence >= 30) {
-      return "text-orange-600";
+      return "text-amber-600";
     } else if (currentResult.isDistracted && currentResult.confidence >= 30) {
       return "text-yellow-600";
     }
-    return "text-green-600";
+    return "text-[#1a7457]";
   };
 
+  const modeLabel = isVideoMode
+    ? "Video review"
+    : uploadedImage
+      ? "Image review"
+      : "Live monitoring";
+  const statusLabel = currentResult
+    ? getStateText()
+    : isMonitoring
+      ? "Monitoring active"
+      : uploadedVideo || uploadedImage
+        ? "Media loaded"
+        : "Waiting to begin";
+  const statusTextColor = currentResult ? getStateColor() : "text-[#1a7457]";
+  const isOverSpeed =
+    currentSpeedMph != null && speedLimitMph != null && currentSpeedMph > speedLimitMph;
+  const detailCards = [
+    {
+      label: "Mode",
+      value: modeLabel,
+      note: isMonitoring ? "Frames analyzed every 10 seconds" : "Manual start",
+    },
+    {
+      label: "Speed",
+      value: currentSpeedMph != null ? `${Math.round(currentSpeedMph)} mph` : "--",
+      note: isOverSpeed ? "Above road limit" : "Within road limit",
+    },
+  ];
+  const resultCards = [
+    {
+      label: "Alcohol cues",
+      value: currentResult?.isDrunk ? "Detected" : "Clear",
+      active: currentResult?.isDrunk ?? false,
+      activeClass: "text-red-600",
+    },
+    {
+      label: "Drowsiness",
+      value: currentResult?.isSleepy ? "Detected" : "Clear",
+      active: currentResult?.isSleepy ?? false,
+      activeClass: "text-amber-600",
+    },
+    {
+      label: "Attention",
+      value: currentResult?.isDistracted ? "Reduced" : "Focused",
+      active: currentResult?.isDistracted ?? false,
+      activeClass: "text-yellow-600",
+    },
+  ];
+
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Video Upload Button - Fixed in top right corner */}
-      <div className="fixed top-20 right-4 z-20 hidden">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="video/*,image/*"
-          onChange={handleFileUpload}
-          className="hidden"
-        />
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white p-3 sm:p-4 rounded-full shadow-xl transition-all hover:scale-110 border-2 border-white"
-          title="Upload Video or Photo for Analysis"
-        >
-          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-          </svg>
-        </button>
-      </div>
-
-      {/* Camera/Video Section */}
-      <div className="bg-gradient-to-br from-white to-slate-50 rounded-2xl shadow-xl border border-slate-200 p-4 sm:p-8">
-        <div className="flex items-center justify-center mb-6 relative">
-          <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 text-center">
-            {isVideoMode ? "📹 Video Analysis" : uploadedImage ? "🖼️ Image Analysis" : "🎥 Live Camera Monitor"}
-          </h2>
-          {(isVideoMode || uploadedImage) && (
-            <button
-              onClick={clearUploadedVideo}
-              className="absolute right-0 px-4 py-2 bg-slate-500 text-white rounded-lg hover:bg-slate-600 transition-all shadow-md"
-            >
-              ✕ Clear Media
-            </button>
-          )}
-        </div>
-        
-        <div className="space-y-4 sm:space-y-6">
-          <div className="relative rounded-2xl overflow-hidden bg-slate-100 p-4">
-            {uploadedImage && !isVideoMode ? (
-              <img
-                src={uploadedImage}
-                alt="Uploaded"
-                className={`w-full max-w-3xl mx-auto block rounded-xl ${`border-4 ${getAlertStyle() || 'border-blue-500'} shadow-2xl`} transition-all duration-300 ease-in-out`}
-                style={{ minHeight: '260px', objectFit: 'contain', backgroundColor: '#f1f5f9' }}
-              />
-            ) : (
-              <video
-                ref={videoRef}
-                autoPlay={!isVideoMode}
-                playsInline
-                muted={!isVideoMode}
-                controls={isVideoMode}
-                src={uploadedVideo || undefined}
-                className={`w-full max-w-3xl mx-auto block rounded-xl ${
-                  isMonitoring || isVideoMode 
-                    ? `border-4 ${getAlertStyle() || 'border-blue-500'} shadow-2xl` 
-                    : 'border-4 border-slate-300'
-                } transition-all duration-300 ease-in-out`}
-                style={{ minHeight: '260px', backgroundColor: '#f1f5f9' }}
-              />
-            )}
-            <canvas ref={canvasRef} className="hidden" />
-
-            {/* Speed HUD */}
-            <div className="absolute bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-auto">
-              <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl shadow-md border-2 bg-white/90 backdrop-blur-sm">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-slate-600 text-xs">Speed</span>
-                  <span className="text-2xl font-bold text-slate-800">
-                    {currentSpeedMph != null ? Math.round(currentSpeedMph) : '--'}
-                  </span>
-                  <span className="text-slate-500 text-xs">mph</span>
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-slate-600 text-xs">Limit</span>
-                  <span className={`text-2xl font-bold ${speedLimitMph != null && currentSpeedMph != null && currentSpeedMph > speedLimitMph ? 'text-red-600' : 'text-green-600'}`}>
-                    {speedLimitMph != null ? speedLimitMph : '--'}
-                  </span>
-                  <span className="text-slate-500 text-xs">mph</span>
-                </div>
-                <div className="text-xs font-semibold px-2 py-1 rounded-md border"
-                  style={{
-                    borderColor: (speedLimitMph != null && currentSpeedMph != null && currentSpeedMph > speedLimitMph) ? '#dc2626' : '#16a34a',
-                    color: (speedLimitMph != null && currentSpeedMph != null && currentSpeedMph > speedLimitMph) ? '#dc2626' : '#16a34a',
-                    background: 'white'
-                  }}
-                >
-                  {speedLimitMph != null && currentSpeedMph != null
-                    ? (currentSpeedMph > speedLimitMph ? 'Over' : 'Under')
-                    : '—'}
-                </div>
-              </div>
+    <div className="space-y-8">
+      <section className="overflow-hidden rounded-[28px] border border-[#e8e5de] bg-white shadow-[0_16px_64px_rgba(17,24,39,0.06)]">
+        <div className="border-b border-[#e8e5de] px-5 py-6 sm:px-8 sm:py-8">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="video/*,image/*"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <span className="inline-flex items-center rounded-full bg-[#f0fdf4] px-4 py-1.5 text-sm font-semibold text-[#1a7457]">
+                Driver safety workspace
+              </span>
+              <h2 className="mt-4 text-4xl font-black tracking-[-0.04em] text-[#111827] sm:text-5xl">
+                {modeLabel}
+              </h2>
+              <p className="mt-4 max-w-2xl text-base leading-7 text-slate-500 sm:text-lg">
+                A calmer monitoring surface for live camera review, uploaded media checks, and speed-limit awareness.
+              </p>
             </div>
-            
-            {currentResult && (
-              <div className="absolute top-3 sm:top-6 left-2 right-2 sm:left-1/2 sm:right-auto sm:transform sm:-translate-x-1/2 bg-white/95 backdrop-blur-sm px-3 py-2 sm:px-6 sm:py-4 rounded-xl shadow-xl border-2 border-white">
-                <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
-                  <span className={`text-sm sm:text-base md:text-xl font-bold ${getStateColor()}`}>
-                    {getStateText()}
-                  </span>
-                  <div className="flex items-center gap-1.5 sm:gap-2">
-                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                    <span className="text-slate-700 font-semibold text-xs sm:text-sm">
-                      {currentResult.confidence}%
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="inline-flex items-center justify-center rounded-full border border-[#e8e5de] bg-white px-5 py-3 text-sm font-semibold text-slate-600 transition hover:border-[#1a7457] hover:text-[#1a7457] focus:outline-none focus:ring-2 focus:ring-[#1a7457] focus:ring-offset-2"
+              >
+                Upload media
+              </button>
+            </div>
           </div>
 
-          {cameraError && (
-            <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6 text-red-700 text-center">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <span className="text-2xl">⚠️</span>
-                <span className="font-semibold">Camera Error</span>
-              </div>
-              <p className="text-sm">{cameraError}</p>
-            </div>
-          )}
-            
-          <div className="flex justify-center gap-3 sm:gap-6 flex-wrap">
-            {!isVideoMode && !isMonitoring && (
-              <button
-                onClick={startMonitoring}
-                className="px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold rounded-xl hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            {detailCards.map((card) => (
+              <div
+                key={card.label}
+                className="rounded-[22px] border border-[#e8e5de] bg-[#faf9f5] p-5"
               >
-                <span className="flex items-center gap-3">
-                  <span className="text-xl">📹</span>
-                  Start Live Monitoring
-                </span>
-              </button>
-            )}
-            
-            {!isVideoMode && isMonitoring && (
-              <button
-                onClick={stopMonitoring}
-                disabled={isAnalyzing}
-                className="px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-red-600 to-red-700 text-white font-bold rounded-xl hover:from-red-700 hover:to-red-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
-              >
-                <span className="flex items-center gap-3">
-                  <span className="text-xl">🛑</span>
-                  Stop Monitoring
-                </span>
-              </button>
-            )}
-            
-            {isVideoMode && uploadedVideo && (
-              <button
-                onClick={analyzeUploadedVideo}
-                disabled={isAnalyzing}
-                className="px-8 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white font-bold rounded-xl hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
-              >
-                <span className="flex items-center gap-3">
-                  <span className="text-xl">🔍</span>
-                  Analyze Video
-                </span>
-              </button>
-            )}
-            {!isVideoMode && uploadedImage && (
-              <button
-                onClick={analyzeUploadedImage}
-                disabled={isAnalyzing}
-                className="px-8 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white font-bold rounded-xl hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
-              >
-                <span className="flex items-center gap-3">
-                  <span className="text-xl">🔍</span>
-                  Analyze Image
-                </span>
-              </button>
-            )}
-          </div>
-
-          {isAnalyzing && (
-            <div className="text-center bg-blue-50 rounded-xl p-6 border-2 border-blue-200">
-              <div className="inline-flex items-center gap-3 text-blue-700">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                <span className="font-semibold text-base sm:text-lg">
-                  {isVideoMode ? "🎬 Analyzing video..." : "🔍 Analyzing live feed..."}
-                </span>
-              </div>
-            </div>
-          )}
-          {!isVideoMode && (
-            <p className="text-center text-slate-500 text-xs sm:text-sm">
-              Keep your eyes on the road. You do not need to look at the camera.
-            </p>
-          )}
-          <p className="text-center text-slate-500 text-xs sm:text-sm">
-            This tool provides heuristic safety alerts and is not a sobriety, medical, or law-enforcement assessment.
-          </p>
-        </div>
-      </div>
-
-      {/* Results Section */}
-      {currentResult && (
-        <div className="bg-gradient-to-br from-white to-slate-50 rounded-2xl shadow-xl border border-slate-200 p-8">
-          <h2 className="text-3xl font-bold text-slate-800 mb-6 text-center flex items-center justify-center gap-3">
-            <span className="text-4xl">📊</span>
-            Analysis Results
-          </h2>
-          
-          <div className="space-y-6">
-            <div className="p-8 bg-white rounded-2xl border-2 border-slate-200 shadow-lg">
-              <div className="grid md:grid-cols-3 gap-6 mb-6">
-                <div className="text-center p-4 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200">
-                  <div className={`text-3xl font-bold mb-3 ${
-                    currentResult.isDrunk ? "text-red-600" : "text-slate-400"
-                  }`}>
-                    {currentResult.isDrunk ? "🍺 Possible Alcohol Signs" : "✅ No Alcohol Signs"}
-                  </div>
-                  <div className="text-sm text-slate-600 font-medium">Alcohol-Related Visual Cues</div>
-                </div>
-                <div className="text-center p-4 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200">
-                  <div className={`text-3xl font-bold mb-3 ${
-                    currentResult.isSleepy ? "text-orange-600" : "text-slate-400"
-                  }`}>
-                    {currentResult.isSleepy ? "😴 Sleepy" : "✅ Alert"}
-                  </div>
-                  <div className="text-sm text-slate-600 font-medium">Drowsiness Detection</div>
-                </div>
-                <div className="text-center p-4 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200">
-                  <div className={`text-3xl font-bold mb-3 ${
-                    currentResult.isDistracted ? "text-yellow-600" : "text-slate-400"
-                  }`}>
-                    {currentResult.isDistracted ? "📱 Distracted" : "✅ Focused"}
-                  </div>
-                  <div className="text-sm text-slate-600 font-medium">Attention Detection</div>
-                </div>
-              </div>
-              
-              <div className="mb-6">
-                <p className="font-bold text-slate-700 mb-4 text-lg flex items-center gap-2">
-                  <span className="text-xl">🎯</span>
-                  Confidence Score
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+                  {card.label}
                 </p>
-                <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl p-6 border border-slate-200">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-3xl font-bold text-blue-600">{currentResult.confidence}%</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-slate-600 font-medium">Model Confidence</span>
-                      <div className="w-40 bg-slate-300 rounded-full h-3 shadow-inner">
-                        <div
-                          className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-500 shadow-sm"
-                          style={{ width: `${currentResult.confidence}%` }}
-                        ></div>
-                      </div>
-                    </div>
+                <p className="mt-3 text-2xl font-black tracking-[-0.04em] text-[#111827]">
+                  {card.value}
+                </p>
+                <p className="mt-2 text-sm text-slate-500">{card.note}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-8 px-5 py-6 sm:px-8 sm:py-8 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,0.9fr)]">
+          <div className="space-y-5">
+            <div className="relative rounded-[28px] border border-[#e8e5de] bg-[#f6f4ee] p-4 sm:p-5">
+              {uploadedImage && !isVideoMode ? (
+                <img
+                  src={uploadedImage}
+                  alt="Uploaded media"
+                  className={`block w-full rounded-[24px] border-2 ${getAlertStyle()} bg-white shadow-[0_16px_48px_rgba(17,24,39,0.08)]`}
+                  style={{ minHeight: "320px", objectFit: "contain" }}
+                />
+              ) : (
+                <video
+                  ref={videoRef}
+                  autoPlay={!isVideoMode}
+                  playsInline
+                  muted={!isVideoMode}
+                  controls={isVideoMode}
+                  src={uploadedVideo || undefined}
+                  className={`block w-full rounded-[24px] border-2 ${
+                    isMonitoring || isVideoMode ? getAlertStyle() : "border-[#d9d3c7]"
+                  } bg-white shadow-[0_16px_48px_rgba(17,24,39,0.08)]`}
+                  style={{ minHeight: "320px" }}
+                />
+              )}
+              <canvas ref={canvasRef} className="hidden" />
+
+              <div className="absolute left-4 right-4 top-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="rounded-full border border-[#e8e5de] bg-white/95 px-4 py-2 shadow-sm backdrop-blur">
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs font-semibold uppercase tracking-[0.24em] ${statusTextColor}`}>
+                      {statusLabel}
+                    </span>
+                    {currentResult && (
+                      <span className="text-sm font-medium text-slate-500">
+                        {currentResult.confidence}% confidence
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {(isVideoMode || uploadedImage) && (
+                  <button
+                    type="button"
+                    onClick={clearUploadedVideo}
+                    className="rounded-full border border-[#e8e5de] bg-white/95 px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm backdrop-blur transition hover:border-[#1a7457] hover:text-[#1a7457] focus:outline-none focus:ring-2 focus:ring-[#1a7457] focus:ring-offset-2"
+                  >
+                    Clear media
+                  </button>
+                )}
+              </div>
+
+              <div className="absolute bottom-4 left-4 right-4 sm:left-auto sm:w-auto">
+                <div className="flex min-w-[250px] items-center justify-between gap-6 rounded-[20px] border border-[#e8e5de] bg-white/95 px-5 py-4 shadow-sm backdrop-blur">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                      Speed
+                    </p>
+                    <p className="mt-2 text-3xl font-black tracking-[-0.04em] text-[#111827]">
+                      {currentSpeedMph != null ? Math.round(currentSpeedMph) : "--"}
+                      <span className="ml-2 text-sm font-semibold tracking-[0.16em] text-slate-400">
+                        mph
+                      </span>
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                      Road limit
+                    </p>
+                    <p className={`mt-2 text-3xl font-black tracking-[-0.04em] ${
+                      isOverSpeed ? "text-red-600" : "text-[#1a7457]"
+                    }`}>
+                      {speedLimitMph != null ? speedLimitMph : "--"}
+                      <span className="ml-2 text-sm font-semibold tracking-[0.16em] text-slate-400">
+                        mph
+                      </span>
+                    </p>
                   </div>
                 </div>
               </div>
-                
-              {currentResult.indicators.length > 0 && (
-                <div>
-                  <p className="font-bold text-slate-700 mb-4 text-lg flex items-center gap-2">
-                    <span className="text-xl">🔍</span>
-                    Indicators Detected
-                  </p>
-                  <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl p-6 border border-slate-200">
-                    <ul className="space-y-3">
-                      {currentResult.indicators.map((indicator, index) => (
-                        <li key={index} className="text-slate-700 flex items-center gap-3 p-2 bg-white rounded-lg shadow-sm">
-                          <span className="w-3 h-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex-shrink-0"></span>
-                          <span className="font-medium capitalize">{indicator}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
+            </div>
+
+            {cameraError && (
+              <div className="rounded-[22px] border border-red-200 bg-red-50 px-5 py-4 text-red-700">
+                <p className="text-sm font-semibold uppercase tracking-[0.24em]">Camera access</p>
+                <p className="mt-2 text-sm">{cameraError}</p>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-3">
+              {!isVideoMode && !isMonitoring && (
+                <button
+                  onClick={startMonitoring}
+                  className="inline-flex items-center justify-center rounded-full bg-[#111827] px-6 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1a7457] focus:ring-offset-2"
+                >
+                  Start monitoring
+                </button>
+              )}
+
+              {!isVideoMode && isMonitoring && (
+                <button
+                  onClick={stopMonitoring}
+                  disabled={isAnalyzing}
+                  className="inline-flex items-center justify-center rounded-full bg-red-600 px-6 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                >
+                  Stop monitoring
+                </button>
+              )}
+
+              {isVideoMode && uploadedVideo && (
+                <button
+                  onClick={analyzeUploadedVideo}
+                  disabled={isAnalyzing}
+                  className="inline-flex items-center justify-center rounded-full bg-[#111827] px-6 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#1a7457] focus:ring-offset-2"
+                >
+                  Analyze video
+                </button>
+              )}
+
+              {!isVideoMode && uploadedImage && (
+                <button
+                  onClick={analyzeUploadedImage}
+                  disabled={isAnalyzing}
+                  className="inline-flex items-center justify-center rounded-full bg-[#111827] px-6 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#1a7457] focus:ring-offset-2"
+                >
+                  Analyze image
+                </button>
               )}
             </div>
 
-            {((currentResult.isDrunk || currentResult.isSleepy || currentResult.isDistracted) && currentResult.confidence >= 30) && (
-              <div className="bg-gradient-to-r from-red-50 to-red-100 border-2 border-red-300 rounded-xl p-6 shadow-lg">
-                <h4 className="font-bold text-red-800 mb-3 text-xl flex items-center gap-3">
-                  <span className="text-2xl animate-pulse">⚠️</span>
-                  Safety Warning
-                </h4>
-                <p className="text-red-700 leading-relaxed">
-                  Possible impairment-related signs were detected. Please do not operate a vehicle.
-                  Use alternative transportation like rideshare services or public transit.
+            {isAnalyzing && (
+              <div className="rounded-[22px] border border-[#e8e5de] bg-[#faf9f5] px-5 py-4">
+                <div className="inline-flex items-center gap-3 text-slate-600">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-[#1a7457]"></div>
+                  <span className="text-sm font-semibold uppercase tracking-[0.18em]">
+                    {isVideoMode ? "Analyzing video" : "Analyzing live feed"}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="rounded-[22px] border border-[#e8e5de] bg-[#faf9f5] p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#1a7457]">
+                Driver notes
+              </p>
+              {!isVideoMode && (
+                <p className="mt-3 text-sm leading-6 text-slate-500">
+                  Keep your eyes on the road. The monitor is built to watch passively while you drive.
                 </p>
+              )}
+              <p className="mt-3 text-sm leading-6 text-slate-500">
+                This tool provides heuristic safety alerts and is not a sobriety, medical, or law-enforcement assessment.
+              </p>
+            </div>
+          </div>
+
+          <aside className="space-y-4">
+            <div className="rounded-[24px] border border-[#e8e5de] bg-[#faf9f5] p-6">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#1a7457]">
+                Current assessment
+              </p>
+              <p className={`mt-4 text-3xl font-black tracking-[-0.04em] ${statusTextColor}`}>
+                {statusLabel}
+              </p>
+              <p className="mt-3 text-sm leading-6 text-slate-500">
+                {currentResult
+                  ? `The latest review returned ${currentResult.confidence}% confidence.`
+                  : "Start a live session or upload media to generate the first assessment."}
+              </p>
+            </div>
+
+            <div className="rounded-[24px] border border-[#e8e5de] bg-white p-6 shadow-[0_16px_40px_rgba(17,24,39,0.04)]">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+                Snapshot
+              </p>
+              <div className="mt-4 space-y-3">
+                {resultCards.map((card) => (
+                  <div
+                    key={card.label}
+                    className="rounded-[18px] border border-[#e8e5de] bg-[#faf9f5] px-4 py-4"
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      {card.label}
+                    </p>
+                    <p className={`mt-2 text-xl font-bold ${card.active ? card.activeClass : "text-slate-400"}`}>
+                      {card.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      {currentResult && (
+        <section className="rounded-[28px] border border-[#e8e5de] bg-white p-5 shadow-[0_16px_64px_rgba(17,24,39,0.06)] sm:p-8">
+          <div className="max-w-3xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#1a7457]">
+              Latest analysis
+            </p>
+            <h3 className="mt-3 text-3xl font-black tracking-[-0.04em] text-[#111827] sm:text-4xl">
+              Detailed frame review
+            </h3>
+            <p className="mt-3 text-sm leading-6 text-slate-500">
+              The latest inference is broken down below so you can see what triggered the alert level.
+            </p>
+          </div>
+
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            {resultCards.map((card) => (
+              <div
+                key={card.label}
+                className="rounded-[22px] border border-[#e8e5de] bg-[#faf9f5] p-5"
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                  {card.label}
+                </p>
+                <p className={`mt-3 text-2xl font-black tracking-[-0.04em] ${card.active ? card.activeClass : "text-slate-400"}`}>
+                  {card.value}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-6 rounded-[24px] border border-[#e8e5de] bg-[#faf9f5] p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                  Confidence
+                </p>
+                <p className="mt-2 text-4xl font-black tracking-[-0.05em] text-[#111827]">
+                  {currentResult.confidence}%
+                </p>
+              </div>
+              <div className="w-full sm:max-w-sm">
+                <div className="h-3 overflow-hidden rounded-full bg-[#e8e5de]">
+                  <div
+                    className="h-3 rounded-full bg-[#1a7457] transition-all duration-500"
+                    style={{ width: `${currentResult.confidence}%` }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+
+            {currentResult.indicators.length > 0 && (
+              <div className="mt-6">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                  Indicators
+                </p>
+                <ul className="mt-4 space-y-3">
+                  {currentResult.indicators.map((indicator, index) => (
+                    <li
+                      key={index}
+                      className="flex items-center gap-3 rounded-[18px] border border-[#e8e5de] bg-white px-4 py-3 text-sm font-medium text-slate-700"
+                    >
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#1a7457]"></span>
+                      <span className="capitalize">{indicator}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </div>
-        </div>
+
+          {((currentResult.isDrunk || currentResult.isSleepy || currentResult.isDistracted) && currentResult.confidence >= 30) && (
+            <div className="mt-6 rounded-[24px] border border-red-200 bg-red-50 p-6">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-red-600">
+                Safety warning
+              </p>
+              <p className="mt-3 text-sm leading-6 text-red-700">
+                Possible impairment-related signs were detected. Do not operate a vehicle. Use alternative transportation such as rideshare or public transit.
+              </p>
+            </div>
+          )}
+        </section>
       )}
     </div>
   );

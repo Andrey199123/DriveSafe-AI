@@ -1,151 +1,180 @@
-# DriveSafe AI Detector - PWA + iOS Wrapper
+# DriveSafe AI
 
-An AI-powered Progressive Web App (PWA) for real-time impairment detection using OpenAI vision models, with Convex handling auth and secure server-side AI proxying.
+An AI-powered Progressive Web Application for real-time driver impairment detection using advanced vision models. Built with Convex for secure authentication and server-side AI proxying.
 
 ## Features
 
-- 🎥 **Live Camera Monitoring**: Continuous webcam monitoring with real-time analysis
-- 🤖 **AI-Powered Detection**: Uses OpenAI vision analysis for driver-safety cues
-- 🚨 **Multi-State Detection**: Detects drunk, sleepy, and distracted states
-- 📱 **PWA Support**: Install as a native app on mobile and desktop
-- 🔔 **Browser Notifications**: Real-time alerts when impairment is detected
-- 🎨 **Clean UI**: Modern design with solid slate/blue color scheme
+- **Live Camera Monitoring**: Continuous webcam monitoring with real-time analysis
+- **AI-Powered Detection**: Advanced vision analysis for driver safety assessment
+- **Multi-State Detection**: Identifies signs of impairment, drowsiness, and distraction
+- **Progressive Web App**: Installable as a native application on mobile and desktop platforms
+- **Real-Time Notifications**: Browser notifications when impairment is detected
+- **Modern Interface**: Clean, professional design optimized for driver safety
 
 ## Prerequisites
 
-- Node.js 18+ and npm
-- OpenAI API key ([Get one here](https://platform.openai.com/api-keys))
-- Convex account ([Get one here](https://www.convex.dev))
-- Xcode 16+ for iOS packaging
+- Node.js 18 or higher with npm
+- OpenAI API key (obtain from [OpenAI Platform](https://platform.openai.com/api-keys))
+- Convex account (sign up at [convex.dev](https://www.convex.dev))
+- Xcode 16 or higher (required for iOS packaging)
 
 ## Setup
 
-1. **Clone and install dependencies:**
+### Installation
+
+1. Clone the repository and install dependencies:
    ```bash
    npm install
    ```
 
-2. **Set up environment variables:**
-   Create a `.env.local` file in the root directory:
+### Environment Configuration
+
+2. Create a `.env.local` file in the root directory:
    ```env
    VITE_CONVEX_URL=your_convex_url_here
    ```
 
-   Then set the OpenAI key on the Convex backend so it never ships to the client:
+3. Configure the OpenAI API key on the Convex backend (ensures the key remains secure and never ships to the client):
    ```bash
    npx convex env set OPENAI_API_KEY your_openai_api_key_here
    ```
 
-3. **Generate PWA icons:**
-   - Open `public/icon-preview.html` in a browser
-   - Take screenshots of each icon size (72x72, 96x96, 128x128, 144x144, 152x152, 192x192, 384x384, 512x512)
-   - Save them as `icon-{size}.png` in the `public` folder
-   - Or use an online tool like [RealFaviconGenerator](https://realfavicongenerator.net/)
+### PWA Icon Generation
 
-4. **Start development servers:**
+4. Generate Progressive Web App icons:
+   - Open `public/icon-preview.html` in a web browser
+   - Capture screenshots for each required icon size: 72x72, 96x96, 128x128, 144x144, 152x152, 192x192, 384x384, 512x512
+   - Save files as `icon-{size}.png` in the `public` directory
+   - Alternatively, use an online tool such as [RealFaviconGenerator](https://realfavicongenerator.net/)
+
+### Development Server
+
+5. Start the development environment:
    ```bash
    npm run dev
    ```
-   This will start:
-   - Frontend on `http://localhost:5173`
-   - Convex backend
+   This command launches:
+   - Frontend development server at `http://localhost:5173`
+   - Convex backend services
 
 ## How It Works
 
-1. **Start Monitoring**: Click "Start Monitoring" to activate the camera
-2. **Automatic Analysis**: The app captures frames every 3 seconds
-3. **AI Detection**: Each frame is analyzed for possible:
-   - Alcohol-related visual cues (bloodshot eyes, facial flushing, etc.)
-   - Sleepiness signs (heavy eyelids, droopy expression, etc.)
-   - Distraction signs (looking away, phone usage, etc.)
-4. **Real-time Alerts**: When impairment is detected (confidence ≥50%), the app shows:
-   - Red/orange/yellow overlay on the video feed
-   - Browser notification
-   - Toast alert
-   - Visual status indicators
+### Monitoring Process
 
-## API Usage
+1. **Initiate Monitoring**: Click "Start Monitoring" to activate camera access
+2. **Automated Analysis**: The application captures video frames at regular intervals (every 3 seconds)
+3. **AI Detection**: Each frame undergoes analysis to identify:
+   - Alcohol-related visual indicators (bloodshot eyes, facial flushing, coordination issues)
+   - Signs of drowsiness (heavy eyelids, drooping expression, reduced alertness)
+   - Distraction indicators (diverted attention, device usage, lack of focus)
+4. **Alert System**: When impairment is detected with confidence threshold of 50% or higher, the system triggers:
+   - Color-coded visual overlay on the video feed (red/orange/yellow based on severity)
+   - Browser notification alert
+   - Toast notification message
+   - Status indicator updates
 
-The app uses OpenAI through a server-side Convex action with the following configuration:
-- **Model**: `gpt-4o`
+## API Configuration
+
+The application utilizes OpenAI's vision API through a secure server-side Convex action with the following specifications:
+
+- **Model**: gpt-4o
 - **Confidence Threshold**: 50%
-- **Analysis Interval**: Every 3 seconds
-- **Image Format**: Base64 encoded JPEG from canvas capture
-- **Key handling**: `OPENAI_API_KEY` stays on the backend and is not exposed in the Vite bundle
+- **Analysis Interval**: 3 seconds
+- **Image Format**: Base64-encoded JPEG from canvas capture
+- **Security**: API key (`OPENAI_API_KEY`) is stored server-side and never exposed in the client bundle
 
 ## iOS Packaging
 
-1. Install dependencies:
+### Build Process
+
+1. Install project dependencies:
    ```bash
    npm install
    ```
-2. Build the web app:
+
+2. Build the web application:
    ```bash
    npm run build
    ```
-3. Generate the iOS project once:
+
+3. Generate the iOS project structure (first-time setup):
    ```bash
    npm run ios:add
    ```
-4. Sync the latest web assets into the native shell:
+
+4. Synchronize web assets with the native iOS shell:
    ```bash
    npm run cap:sync:ios
    ```
-5. Open Xcode:
+
+5. Open the project in Xcode:
    ```bash
    npm run ios:open
    ```
 
-Use a physical iPhone for camera and permission testing. The Capacitor bundle identifier in [capacitor.config.ts](/Users/nikolay/Downloads/DriveSafe-AI-main/capacitor.config.ts) is a placeholder and should be replaced with your production reverse-DNS ID before shipping.
+### Important Notes
 
-## PWA Installation
+- Testing requires a physical iPhone device for camera access and permission handling
+- The Capacitor bundle identifier in `capacitor.config.ts` is a placeholder
+- Replace with your production reverse-DNS identifier before deployment
 
-### Desktop:
-1. Open the app in Chrome/Edge
+## Progressive Web App Installation
+
+### Desktop Installation (Chrome/Edge)
+
+1. Navigate to the application in your browser
 2. Click the install icon in the address bar
-3. Follow the prompts to install
+3. Follow the installation prompts
 
-### Mobile (iOS Safari):
-1. Open Safari and navigate to the app
+### iOS Installation (Safari)
+
+1. Open Safari and navigate to the application
 2. Tap the Share button
 3. Select "Add to Home Screen"
+4. Confirm the installation
 
-### Mobile (Android):
-1. Open Chrome and navigate to the app
-2. Tap the menu (three dots)
+### Android Installation (Chrome)
+
+1. Open Chrome and navigate to the application
+2. Tap the menu icon (three vertical dots)
 3. Select "Add to Home Screen" or "Install App"
+4. Confirm the installation
 
-## Configuration
+## Configuration Options
 
-### Modify Detection Sensitivity
-Edit the confidence threshold in `src/DrunkDetector.tsx`:
+### Detection Sensitivity
+
+Modify the confidence threshold in `src/DrunkDetector.tsx`:
+
 ```typescript
 if ((result.isDrunk || result.isSleepy || result.isDistracted) && result.confidence >= 50) {
-  // Change 50 to your desired threshold
+  // Adjust the threshold value (50) as needed
 }
 ```
 
-### Modify Analysis Interval
-Edit the interval in `src/DrunkDetector.tsx`:
+### Analysis Interval
+
+Adjust the frame capture interval in `src/DrunkDetector.tsx`:
+
 ```typescript
 intervalRef.current = setInterval(() => {
   analyzeCurrentFrame();
-}, 3000); // Change 3000 to your desired interval in milliseconds
+}, 3000); // Modify interval in milliseconds (default: 3000ms)
 ```
 
-## Tech Stack
+## Technology Stack
 
-- **Frontend**: React + TypeScript + Vite
-- **UI**: Tailwind CSS
-- **Backend**: Convex (auth + secure AI proxy)
-- **AI**: OpenAI GPT-4o vision analysis
-- **PWA**: Service Worker + Manifest
-- **Native wrapper**: Capacitor for iOS
+- **Frontend Framework**: React with TypeScript and Vite
+- **Styling**: Tailwind CSS
+- **Backend Services**: Convex (authentication and secure AI proxy)
+- **AI Model**: OpenAI GPT-4o vision analysis
+- **Progressive Web App**: Service Worker with Web App Manifest
+- **Native Wrapper**: Capacitor for iOS deployment
 
 ## License
 
-MIT
+MIT License
 
 ## Support
 
-For issues or questions, please open an issue on GitHub.
+For issues, questions, or feature requests, please open an issue on the GitHub repository.
