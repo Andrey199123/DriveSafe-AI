@@ -20,6 +20,10 @@ out/
 # Convex
 .convex/
 
+# Kiro and Codex
+.kiro/
+.codex/
+
 # Vite
 .vite/
 vite.config.js.timestamp-*
