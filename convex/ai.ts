@@ -182,9 +182,14 @@ Return ONLY the JSON object.`,
       // Get or create guest user if userId is null
       let trackingUserId = userId;
       if (!trackingUserId) {
+        console.log("[Groq] Creating/getting guest user for tracking");
         trackingUserId = await ctx.runMutation(internal.usage.getOrCreateGuestUser, {});
+        console.log("[Groq] Guest user ID:", trackingUserId);
+      } else {
+        console.log("[Groq] Using authenticated user ID:", trackingUserId);
       }
       
+      console.log("[Groq] Recording usage event - status:", status, "tokens:", totalTokens);
       await ctx.runMutation(internal.usage.recordUsageEvent, {
         userId: trackingUserId,
         provider: "groq",
@@ -197,6 +202,7 @@ Return ONLY the JSON object.`,
         totalTokens,
         errorMessage,
       });
+      console.log("[Groq] Usage event recorded successfully");
     } catch (loggingError) {
       console.error("Failed to record Groq usage event:", loggingError);
     }
@@ -382,9 +388,14 @@ Return ONLY the JSON object.`,
       // Get or create guest user if userId is null
       let trackingUserId = userId;
       if (!trackingUserId) {
+        console.log("[ChatGPT] Creating/getting guest user for tracking");
         trackingUserId = await ctx.runMutation(internal.usage.getOrCreateGuestUser, {});
+        console.log("[ChatGPT] Guest user ID:", trackingUserId);
+      } else {
+        console.log("[ChatGPT] Using authenticated user ID:", trackingUserId);
       }
       
+      console.log("[ChatGPT] Recording usage event - status:", status, "tokens:", totalTokens);
       await ctx.runMutation(internal.usage.recordUsageEvent, {
         userId: trackingUserId,
         provider: "chatgpt",
@@ -397,6 +408,7 @@ Return ONLY the JSON object.`,
         totalTokens,
         errorMessage,
       });
+      console.log("[ChatGPT] Usage event recorded successfully");
     } catch (loggingError) {
       console.error("Failed to record ChatGPT usage event:", loggingError);
     }

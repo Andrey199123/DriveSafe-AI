@@ -29,10 +29,11 @@ export const getOrCreateGuestUser = internalMutation({
       email: "guest@drivesafe.app",
       name: "Guest User",
       emailVerificationTime: Date.now(),
-      isAnonymous: true,
     });
 
     return guestUserId;
+  },
+});
   },
 });
 
