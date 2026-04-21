@@ -179,21 +179,24 @@ Return ONLY the JSON object.`,
     throw error;
   } finally {
     try {
-      // Only record usage if user is authenticated
-      if (userId) {
-        await ctx.runMutation(internal.usage.recordUsageEvent, {
-          userId,
-          provider: "groq",
-          model: GROQ_MODEL,
-          requestSource: source,
-          status,
-          latencyMs: Date.now() - startedAt,
-          promptTokens,
-          completionTokens,
-          totalTokens,
-          errorMessage,
-        });
+      // Get or create guest user if userId is null
+      let trackingUserId = userId;
+      if (!trackingUserId) {
+        trackingUserId = await ctx.runMutation(internal.usage.getOrCreateGuestUser, {});
       }
+      
+      await ctx.runMutation(internal.usage.recordUsageEvent, {
+        userId: trackingUserId,
+        provider: "groq",
+        model: GROQ_MODEL,
+        requestSource: source,
+        status,
+        latencyMs: Date.now() - startedAt,
+        promptTokens,
+        completionTokens,
+        totalTokens,
+        errorMessage,
+      });
     } catch (loggingError) {
       console.error("Failed to record Groq usage event:", loggingError);
     }
@@ -376,21 +379,24 @@ Return ONLY the JSON object.`,
     throw error;
   } finally {
     try {
-      // Only record usage if user is authenticated
-      if (userId) {
-        await ctx.runMutation(internal.usage.recordUsageEvent, {
-          userId,
-          provider: "chatgpt",
-          model: CHATGPT_MODEL,
-          requestSource: source,
-          status,
-          latencyMs: Date.now() - startedAt,
-          promptTokens,
-          completionTokens,
-          totalTokens,
-          errorMessage,
-        });
+      // Get or create guest user if userId is null
+      let trackingUserId = userId;
+      if (!trackingUserId) {
+        trackingUserId = await ctx.runMutation(internal.usage.getOrCreateGuestUser, {});
       }
+      
+      await ctx.runMutation(internal.usage.recordUsageEvent, {
+        userId: trackingUserId,
+        provider: "chatgpt",
+        model: CHATGPT_MODEL,
+        requestSource: source,
+        status,
+        latencyMs: Date.now() - startedAt,
+        promptTokens,
+        completionTokens,
+        totalTokens,
+        errorMessage,
+      });
     } catch (loggingError) {
       console.error("Failed to record ChatGPT usage event:", loggingError);
     }

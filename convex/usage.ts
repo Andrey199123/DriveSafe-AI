@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { internalMutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 
 const providerValidator = v.union(v.literal("groq"), v.literal("gemini"), v.literal("chatgpt"));
 const requestSourceValidator = v.union(
@@ -8,6 +9,32 @@ const requestSourceValidator = v.union(
   v.literal("uploaded_video"),
   v.literal("stored_image"),
 );
+
+// Internal query to get or create a guest user for anonymous usage tracking
+export const getOrCreateGuestUser = internalMutation({
+  args: {},
+  handler: async (ctx): Promise<Id<"users">> => {
+    // Look for existing guest user by email
+    const existingGuest = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("email"), "guest@drivesafe.app"))
+      .first();
+
+    if (existingGuest) {
+      return existingGuest._id;
+    }
+
+    // Create a guest user if it doesn't exist
+    const guestUserId = await ctx.db.insert("users", {
+      email: "guest@drivesafe.app",
+      name: "Guest User",
+      emailVerificationTime: Date.now(),
+      isAnonymous: true,
+    });
+
+    return guestUserId;
+  },
+});
 
 export const recordUsageEvent = internalMutation({
   args: {
