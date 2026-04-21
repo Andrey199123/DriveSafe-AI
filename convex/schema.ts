@@ -16,7 +16,7 @@ const applicationTables = {
   }).index("by_user", ["userId"]),
   usageEvents: defineTable({
     userId: v.id("users"),
-    provider: v.union(v.literal("groq"), v.literal("gemini")),
+    provider: v.union(v.literal("groq"), v.literal("gemini"), v.literal("chatgpt")),
     model: v.string(),
     requestSource: v.union(
       v.literal("live_camera"),
@@ -39,10 +39,15 @@ const applicationTables = {
     errorCount: v.number(),
     groqRequestCount: v.number(),
     geminiRequestCount: v.number(),
+    chatgptRequestCount: v.optional(v.number()),
     promptTokens: v.number(),
     completionTokens: v.number(),
     totalTokens: v.number(),
     lastRequestAt: v.number(),
+  }).index("by_user", ["userId"]),
+  userSettings: defineTable({
+    userId: v.id("users"),
+    apiProvider: v.union(v.literal("groq"), v.literal("chatgpt")),
   }).index("by_user", ["userId"]),
 };
 

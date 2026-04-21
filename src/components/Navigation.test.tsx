@@ -41,7 +41,7 @@ describe("Navigation Component", () => {
     );
 
     const monitorLink = screen.getByRole("link", { name: /monitor/i });
-    expect(monitorLink).toHaveClass("bg-[#1a7457]");
+    expect(monitorLink).toHaveClass("bg-[#2563eb]");
     expect(monitorLink).toHaveClass("text-white");
   });
 

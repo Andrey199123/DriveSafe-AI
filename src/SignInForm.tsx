@@ -11,14 +11,14 @@ export function SignInForm() {
   return (
     <div className="site-panel w-full p-8 sm:p-10">
       <p className="site-eyebrow">Access</p>
-      <h2 className="mt-4 text-3xl font-black tracking-[-0.04em] text-[#111827]">
+      <h2 className="mt-4 text-3xl font-black tracking-normal text-[#111827]">
         Enter the monitor
       </h2>
       <p className="mt-4 text-base leading-7 text-slate-500">
         Use an email and password for a persistent account, or open a guest session for quick testing.
       </p>
 
-      <div className="mt-8 inline-flex rounded-full bg-[#f6f4ee] p-1">
+      <div className="mt-8 inline-flex rounded-full bg-[#eff6ff] p-1">
         <button
           type="button"
           className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
@@ -91,9 +91,9 @@ export function SignInForm() {
       </form>
 
       <div className="my-6 flex items-center justify-center gap-4">
-        <hr className="grow border-[#e8e5de]" />
+        <hr className="grow border-[#e2e8f0]" />
         <span className="text-sm text-slate-400">or</span>
-        <hr className="grow border-[#e8e5de]" />
+        <hr className="grow border-[#e2e8f0]" />
       </div>
 
       <button

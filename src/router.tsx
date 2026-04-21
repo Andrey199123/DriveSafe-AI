@@ -12,7 +12,7 @@ const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 function PageLoader() {
   return (
     <div className="flex min-h-[60vh] items-center justify-center">
-      <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#d9d3c7] border-t-[#1a7457]"></div>
+      <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#bfdbfe] border-t-[#2563eb]"></div>
     </div>
   );
 }

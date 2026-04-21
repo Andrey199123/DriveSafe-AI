@@ -11,7 +11,14 @@ import SettingsPage from "./pages/SettingsPage";
 let mockUserData: any = null;
 
 vi.mock("convex/react", () => ({
-  useQuery: vi.fn(() => mockUserData),
+  useQuery: vi.fn((query) => {
+    // Return user data for auth queries
+    if (query === "mockLoggedInUser") {
+      return mockUserData;
+    }
+    // Return default settings for settings queries
+    return { apiProvider: "groq" };
+  }),
   useConvex: () => ({
     query: vi.fn().mockResolvedValue({
       totals: {
@@ -20,6 +27,7 @@ vi.mock("convex/react", () => ({
         errorCount: 5,
         groqRequestCount: 60,
         geminiRequestCount: 40,
+        chatgptRequestCount: 0,
         promptTokens: 5000,
         completionTokens: 3000,
         totalTokens: 8000,
@@ -59,6 +67,9 @@ vi.mock("../convex/_generated/api", () => ({
     },
     usage: {
       getUsageDashboard: "mockGetUsageDashboard",
+    },
+    settings: {
+      getMySettings: "mockGetMySettings",
     },
   },
 }));

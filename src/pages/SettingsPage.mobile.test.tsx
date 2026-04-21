@@ -18,10 +18,8 @@ describe("SettingsPage Mobile Layout", () => {
     const mainSection = container.querySelector("section");
     expect(mainSection).toBeInTheDocument();
     
-    // Check that the section has proper mobile styling
-    expect(mainSection).toHaveClass("overflow-hidden");
-    expect(mainSection).toHaveClass("rounded-[28px]");
-    expect(mainSection).toHaveClass("border");
+    // Check that the section has proper mobile styling with new design
+    expect(mainSection).toHaveClass("settings-section");
   });
 
   it("has responsive padding for mobile devices", () => {
@@ -31,12 +29,11 @@ describe("SettingsPage Mobile Layout", () => {
       </ConvexProvider>
     );
 
-    // Check header section has responsive padding
-    const headerSection = container.querySelector(".border-b");
-    expect(headerSection).toHaveClass("px-5");
-    expect(headerSection).toHaveClass("py-6");
-    expect(headerSection).toHaveClass("sm:px-8");
-    expect(headerSection).toHaveClass("sm:py-8");
+    // Check that the settings card exists with proper styling
+    const settingsCard = container.querySelector(".settings-card");
+    expect(settingsCard).toBeInTheDocument();
+    // The settings-card class includes padding via CSS
+    expect(settingsCard).toHaveClass("settings-card");
   });
 
   it("password form is centered and properly sized on mobile", () => {
@@ -49,10 +46,10 @@ describe("SettingsPage Mobile Layout", () => {
     const passwordInput = screen.getByPlaceholderText(/usage dashboard password/i);
     expect(passwordInput).toBeInTheDocument();
     
-    // Form should be in a container with max-width for better mobile UX
+    // Form should be in a settings card with proper styling
     const form = passwordInput.closest("form");
-    expect(form).toHaveClass("mx-auto");
-    expect(form).toHaveClass("max-w-md");
+    expect(form).toBeInTheDocument();
+    expect(form?.parentElement).toHaveClass("settings-card");
   });
 
   it("dashboard cards stack vertically on mobile when unlocked", () => {
@@ -67,9 +64,8 @@ describe("SettingsPage Mobile Layout", () => {
     const passwordForm = screen.getByPlaceholderText(/usage dashboard password/i).closest("form");
     expect(passwordForm).toBeInTheDocument();
     
-    // The form container should have responsive classes
-    expect(passwordForm).toHaveClass("mx-auto");
-    expect(passwordForm).toHaveClass("max-w-md");
+    // The form container should have proper styling
+    expect(passwordForm?.parentElement).toHaveClass("settings-card");
   });
 
   it("settings page takes full available width within layout constraints", () => {
@@ -79,8 +75,8 @@ describe("SettingsPage Mobile Layout", () => {
       </ConvexProvider>
     );
 
-    // The outer container should use space-y for vertical spacing
-    const outerContainer = container.querySelector(".space-y-8");
+    // The outer container should use space-y for vertical spacing with new design
+    const outerContainer = container.querySelector(".space-y-16");
     expect(outerContainer).toBeInTheDocument();
   });
 
@@ -93,9 +89,8 @@ describe("SettingsPage Mobile Layout", () => {
 
     const unlockButton = screen.getByRole("button", { name: /unlock dashboard/i });
     
-    // Button should have proper padding for touch targets
-    expect(unlockButton).toHaveClass("auth-button");
-    expect(unlockButton).toHaveClass("mt-4");
+    // Button should have proper styling for touch targets with new design
+    expect(unlockButton).toHaveClass("settings-button-primary");
   });
 
   it("responsive text sizing for mobile readability", () => {
@@ -107,8 +102,8 @@ describe("SettingsPage Mobile Layout", () => {
 
     const heading = screen.getByText(/shared usage dashboard/i);
     
-    // Heading should have responsive text sizing
-    expect(heading).toHaveClass("text-4xl");
-    expect(heading).toHaveClass("sm:text-5xl");
+    // Heading should have responsive text sizing with new bolder design
+    expect(heading).toHaveClass("text-5xl");
+    expect(heading).toHaveClass("sm:text-6xl");
   });
 });

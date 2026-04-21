@@ -2,9 +2,10 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { RouterProvider, createMemoryRouter } from "react-router-dom";
 import RouteErrorBoundary from "./components/RouteErrorBoundary";
+import type { ReactElement } from "react";
 
 // Component that throws an error
-function ErrorComponent() {
+function ErrorComponent(): ReactElement {
   throw new Error("Test error");
 }
 

@@ -53,7 +53,7 @@ describe("Keyboard Navigation Accessibility", () => {
     // Check for focus ring classes
     expect(homeLink).toHaveClass("focus:outline-none");
     expect(homeLink).toHaveClass("focus:ring-2");
-    expect(homeLink).toHaveClass("focus:ring-[#1a7457]/30");
+    expect(homeLink).toHaveClass("focus:ring-[#2563eb]/30");
   });
 
   it("sign out button is keyboard accessible", async () => {

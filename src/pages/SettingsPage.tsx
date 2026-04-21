@@ -1,7 +1,10 @@
 import { useState, useRef } from "react";
-import { useConvex } from "convex/react";
+import { useConvex, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
+import { ProviderSelector } from "../components/ProviderSelector";
+
+type UsageProvider = "groq" | "gemini" | "chatgpt";
 
 interface UsageDashboard {
   totals: {
@@ -10,6 +13,7 @@ interface UsageDashboard {
     errorCount: number;
     groqRequestCount: number;
     geminiRequestCount: number;
+    chatgptRequestCount: number;
     promptTokens: number;
     completionTokens: number;
     totalTokens: number;
@@ -17,7 +21,7 @@ interface UsageDashboard {
   };
   recentEvents: Array<{
     _id: string;
-    provider: "groq" | "gemini";
+    provider: UsageProvider;
     model: string;
     requestSource: "live_camera" | "uploaded_image" | "uploaded_video" | "stored_image";
     status: "success" | "error";
@@ -36,7 +40,11 @@ export default function SettingsPage() {
   const [usageError, setUsageError] = useState<string | null>(null);
   const [usagePassword, setUsagePassword] = useState("");
   const [usageDashboard, setUsageDashboard] = useState<UsageDashboard | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<UsageProvider | "all">("all");
   const usagePasswordRef = useRef("");
+  
+  // Query current provider settings (not password-protected)
+  const currentSettings = useQuery(api.settings.getMySettings);
 
   const formatRelativeTime = (timestamp: number | null) => {
     if (!timestamp) return "Never";
@@ -50,11 +58,54 @@ export default function SettingsPage() {
     return `${diffDays}d ago`;
   };
 
+  const formatProviderName = (provider: UsageProvider) => {
+    if (provider === "chatgpt") return "ChatGPT";
+    if (provider === "groq") return "Groq";
+    return "Gemini";
+  };
+
+  // Filter usage data by selected provider
+  const filteredTotals = usageDashboard
+    ? selectedProvider === "all"
+      ? usageDashboard.totals
+      : {
+          requestCount:
+            selectedProvider === "groq"
+              ? usageDashboard.totals.groqRequestCount
+              : selectedProvider === "gemini"
+              ? usageDashboard.totals.geminiRequestCount
+              : usageDashboard.totals.chatgptRequestCount,
+          successCount: usageDashboard.recentEvents.filter(
+            (e) => e.provider === selectedProvider && e.status === "success"
+          ).length,
+          errorCount: usageDashboard.recentEvents.filter(
+            (e) => e.provider === selectedProvider && e.status === "error"
+          ).length,
+          groqRequestCount: usageDashboard.totals.groqRequestCount,
+          geminiRequestCount: usageDashboard.totals.geminiRequestCount,
+          chatgptRequestCount: usageDashboard.totals.chatgptRequestCount,
+          promptTokens: usageDashboard.recentEvents
+            .filter((e) => e.provider === selectedProvider)
+            .reduce((sum, e) => sum + (e.promptTokens ?? 0), 0),
+          completionTokens: usageDashboard.recentEvents
+            .filter((e) => e.provider === selectedProvider)
+            .reduce((sum, e) => sum + (e.completionTokens ?? 0), 0),
+          totalTokens: usageDashboard.recentEvents
+            .filter((e) => e.provider === selectedProvider)
+            .reduce((sum, e) => sum + (e.totalTokens ?? 0), 0),
+          lastRequestAt: usageDashboard.totals.lastRequestAt,
+        }
+    : null;
+
+  const filteredEvents = usageDashboard
+    ? selectedProvider === "all"
+      ? usageDashboard.recentEvents
+      : usageDashboard.recentEvents.filter((e) => e.provider === selectedProvider)
+    : [];
+
   const successRate =
-    usageDashboard && usageDashboard.totals.requestCount > 0
-      ? Math.round(
-          (usageDashboard.totals.successCount / usageDashboard.totals.requestCount) * 100,
-        )
+    filteredTotals && filteredTotals.requestCount > 0
+      ? Math.round((filteredTotals.successCount / filteredTotals.requestCount) * 100)
       : 0;
 
   const loadUsageDashboard = async (password: string) => {
@@ -94,199 +145,267 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-8">
-      <section className="overflow-hidden rounded-[28px] border border-[#e8e5de] bg-white shadow-[0_16px_64px_rgba(17,24,39,0.06)]">
-        <div className="border-b border-[#e8e5de] px-5 py-6 sm:px-8 sm:py-8">
-          <div className="max-w-3xl">
-            <span className="inline-flex items-center rounded-full bg-[#f0fdf4] px-4 py-1.5 text-sm font-semibold text-[#1a7457]">
-              Settings
-            </span>
-            <h2 className="mt-4 text-4xl font-black tracking-[-0.04em] text-[#111827] sm:text-5xl">
-              Shared usage dashboard
-            </h2>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-slate-500 sm:text-lg">
-              Monitoring remains available to anonymous sessions. Usage data stays behind a single shared password.
-            </p>
+    <div className="mx-auto max-w-6xl space-y-16 py-8">
+      {/* Section 01 - Current Provider */}
+      <section className="settings-section">
+        <div className="settings-section-number">01</div>
+        <div className="settings-section-label">CURRENT PROVIDER</div>
+        
+        <div className="mt-8 settings-card">
+          <div className="flex items-start justify-between gap-6">
+            <div className="flex-1">
+              <div className="text-sm font-medium uppercase tracking-wider text-slate-400">
+                Active AI Provider
+              </div>
+              <div className="mt-3 text-4xl font-black text-[#111827]">
+                {currentSettings?.apiProvider === "chatgpt" ? "ChatGPT API" : "Groq API"}
+              </div>
+              <p className="mt-4 text-base leading-relaxed text-slate-600">
+                {currentSettings?.apiProvider === "chatgpt"
+                  ? "Using GPT-4o vision analysis through OpenAI for high-accuracy image understanding and detailed scene interpretation."
+                  : "Using fast inference with Llama Vision for real-time analysis with optimized latency and throughput."}
+              </p>
+            </div>
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-[#111827] text-2xl font-black text-white">
+              {currentSettings?.apiProvider === "chatgpt" ? "GPT" : "LLM"}
+            </div>
+          </div>
+          <div className="mt-6 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-500">
+            To change the AI provider, unlock the usage dashboard below.
           </div>
         </div>
+      </section>
 
-        <div className="px-5 py-6 sm:px-8 sm:py-8">
-          <div className="rounded-[24px] border border-[#e8e5de] bg-[#faf9f5] p-5 sm:p-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-                  Usage access
-                </p>
-                <p className="mt-2 text-2xl font-black tracking-[-0.04em] text-[#111827]">
+      {/* Section 02 - Usage Dashboard */}
+      <section className="settings-section">
+        <div className="settings-section-number">02</div>
+        <div className="settings-section-label">USAGE DASHBOARD</div>
+        
+        <div className="mt-8">
+          <h2 className="text-5xl font-black leading-tight text-[#111827] sm:text-6xl">
+            Shared usage dashboard
+          </h2>
+          <p className="mt-6 max-w-2xl text-lg leading-relaxed text-slate-600">
+            Monitoring remains available to anonymous sessions. Usage data stays behind a single shared password.
+          </p>
+        </div>
+
+        <div className="mt-12">
+          {!usageDashboard ? (
+            <div className="settings-card max-w-lg">
+              <div className="mb-6">
+                <div className="text-sm font-medium uppercase tracking-wider text-slate-400">
+                  Access Required
+                </div>
+                <div className="mt-2 text-2xl font-black text-[#111827]">
                   App-wide API request metrics
-                </p>
+                </div>
               </div>
-              {usageDashboard && (
-                <button
-                  type="button"
-                  onClick={lockUsageDashboard}
-                  className="inline-flex items-center justify-center rounded-full border border-[#e8e5de] bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-[#1a7457] hover:text-[#1a7457] focus:outline-none focus:ring-2 focus:ring-[#1a7457] focus:ring-offset-2"
-                >
-                  Lock dashboard
-                </button>
-              )}
-            </div>
-
-            {!usageDashboard ? (
-              <form
-                onSubmit={handleUsagePasswordSubmit}
-                className="mx-auto mt-8 max-w-md rounded-[22px] border border-[#e8e5de] bg-white p-6"
-              >
-                <p className="text-sm leading-6 text-slate-500">
+              
+              <form onSubmit={handleUsagePasswordSubmit} className="space-y-4">
+                <p className="text-sm leading-relaxed text-slate-600">
                   Enter the shared password to open the API usage view.
                 </p>
                 <input
                   type="password"
                   value={usagePassword}
                   onChange={(event) => setUsagePassword(event.target.value)}
-                  className="auth-input-field mt-5"
+                  className="settings-input"
                   placeholder="Usage dashboard password"
                   required
                 />
                 <button
                   type="submit"
                   disabled={isUsageLoading}
-                  className="auth-button mt-4 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="settings-button-primary"
                 >
-                  {isUsageLoading ? "Unlocking dashboard" : "Unlock dashboard"}
+                  {isUsageLoading ? "Unlocking dashboard..." : "Unlock dashboard"}
                 </button>
                 {usageError && (
-                  <p className="mt-3 text-sm text-red-600">{usageError}</p>
+                  <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {usageError}
+                  </div>
                 )}
               </form>
-            ) : (
-              <div className="mt-8 space-y-6">
-                <div className="grid gap-4 md:grid-cols-4">
-                  <div className="rounded-[20px] border border-[#e8e5de] bg-white p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Requests</p>
-                    <p className="mt-3 text-3xl font-black tracking-[-0.04em] text-[#111827]">
-                      {usageDashboard.totals.requestCount}
-                    </p>
+            </div>
+          ) : (
+            <div className="space-y-8 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-medium uppercase tracking-wider text-slate-400">
+                  Dashboard Unlocked
+                </div>
+                <button
+                  type="button"
+                  onClick={lockUsageDashboard}
+                  className="settings-button-secondary"
+                >
+                  Lock dashboard
+                </button>
+              </div>
+
+              <ProviderSelector password={usagePasswordRef.current} />
+
+              {/* Provider Filter */}
+              <div className="settings-card">
+                <label htmlFor="provider-filter" className="block">
+                  <div className="text-sm font-medium uppercase tracking-wider text-slate-400">
+                    Filter by Provider
                   </div>
-                  <div className="rounded-[20px] border border-[#e8e5de] bg-white p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Success rate</p>
-                    <p className="mt-3 text-3xl font-black tracking-[-0.04em] text-[#1a7457]">
-                      {successRate}%
-                    </p>
-                  </div>
-                  <div className="rounded-[20px] border border-[#e8e5de] bg-white p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Tracked tokens</p>
-                    <p className="mt-3 text-3xl font-black tracking-[-0.04em] text-[#111827]">
-                      {usageDashboard.totals.totalTokens}
-                    </p>
-                  </div>
-                  <div className="rounded-[20px] border border-[#e8e5de] bg-white p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Last request</p>
-                    <p className="mt-3 text-2xl font-black tracking-[-0.04em] text-[#111827]">
-                      {formatRelativeTime(usageDashboard.totals.lastRequestAt)}
-                    </p>
+                  <select
+                    id="provider-filter"
+                    value={selectedProvider}
+                    onChange={(e) => setSelectedProvider(e.target.value as UsageProvider | "all")}
+                    className="settings-select"
+                  >
+                    <option value="all">All Providers</option>
+                    <option value="groq">Groq Only</option>
+                    <option value="gemini">Gemini Only</option>
+                    <option value="chatgpt">ChatGPT Only</option>
+                  </select>
+                </label>
+              </div>
+
+              {/* Metrics Grid */}
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="settings-metric-card">
+                  <div className="text-xs font-medium uppercase tracking-wider text-slate-400">Requests</div>
+                  <div className="mt-4 text-5xl font-black text-[#111827]">
+                    {filteredTotals?.requestCount ?? 0}
                   </div>
                 </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="rounded-[20px] border border-[#e8e5de] bg-white p-5">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                      Provider mix
-                    </p>
-                    <div className="mt-4 space-y-3 text-sm text-slate-600">
-                      <div className="flex items-center justify-between">
-                        <span>Groq</span>
-                        <span className="font-semibold">{usageDashboard.totals.groqRequestCount}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Gemini</span>
-                        <span className="font-semibold">{usageDashboard.totals.geminiRequestCount}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-[20px] border border-[#e8e5de] bg-white p-5">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                      Failures and tokens
-                    </p>
-                    <p className="mt-4 text-3xl font-black tracking-[-0.04em] text-red-600">
-                      {usageDashboard.totals.errorCount}
-                    </p>
-                    <p className="mt-3 text-sm text-slate-500">
-                      Prompt tokens: {usageDashboard.totals.promptTokens}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      Completion tokens: {usageDashboard.totals.completionTokens}
-                    </p>
+                <div className="settings-metric-card">
+                  <div className="text-xs font-medium uppercase tracking-wider text-slate-400">Success rate</div>
+                  <div className="mt-4 text-5xl font-black text-[#2563eb]">
+                    {successRate}%
                   </div>
                 </div>
-
-                <div className="rounded-[20px] border border-[#e8e5de] bg-white p-5">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                        Recent requests
-                      </p>
-                      <p className="mt-2 text-sm text-slate-500">
-                        Shared-password view of recent app-wide API activity.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={refreshUsageDashboard}
-                      disabled={isUsageLoading}
-                      className="inline-flex items-center justify-center rounded-full border border-[#e8e5de] bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-[#1a7457] hover:text-[#1a7457] disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#1a7457] focus:ring-offset-2"
-                    >
-                      Refresh
-                    </button>
+                <div className="settings-metric-card">
+                  <div className="text-xs font-medium uppercase tracking-wider text-slate-400">Tracked tokens</div>
+                  <div className="mt-4 text-5xl font-black text-[#111827]">
+                    {filteredTotals?.totalTokens ?? 0}
                   </div>
-
-                  {usageDashboard.recentEvents.length ? (
-                    <div className="mt-5 space-y-3">
-                      {usageDashboard.recentEvents.map((event) => (
-                        <div
-                          key={event._id}
-                          className="rounded-[18px] border border-[#e8e5de] bg-[#faf9f5] px-4 py-4"
-                        >
-                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="flex items-center gap-3">
-                              <span
-                                className={`inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${
-                                  event.status === "success"
-                                    ? "bg-[#f0fdf4] text-[#1a7457]"
-                                    : "bg-red-50 text-red-600"
-                                }`}
-                              >
-                                {event.status}
-                              </span>
-                              <span className="text-sm font-medium text-slate-700">
-                                {event.provider.toUpperCase()} · {event.requestSource.replace(/_/g, " ")}
-                              </span>
-                            </div>
-                            <span className="text-sm text-slate-500">
-                              {formatRelativeTime(event.timestamp)}
-                            </span>
-                          </div>
-                          <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-500">
-                            <span>Latency: {event.latencyMs}ms</span>
-                            <span>Tokens: {event.totalTokens ?? 0}</span>
-                            <span>Model: {event.model}</span>
-                          </div>
-                          {event.errorMessage && (
-                            <p className="mt-3 text-sm text-red-600">{event.errorMessage}</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="mt-5 text-sm text-slate-500">
-                      No usage has been recorded yet for this account.
-                    </p>
-                  )}
+                </div>
+                <div className="settings-metric-card">
+                  <div className="text-xs font-medium uppercase tracking-wider text-slate-400">Last request</div>
+                  <div className="mt-4 text-4xl font-black text-[#111827]">
+                    {formatRelativeTime(filteredTotals?.lastRequestAt ?? null)}
+                  </div>
                 </div>
               </div>
-            )}
-          </div>
+
+              {/* Provider Mix & Failures */}
+              <div className="grid gap-6 lg:grid-cols-2">
+                <div className="settings-card">
+                  <div className="text-sm font-medium uppercase tracking-wider text-slate-400">
+                    Provider mix
+                  </div>
+                  <div className="mt-6 space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <span className="text-base font-medium text-slate-700">Groq</span>
+                      <span className="text-2xl font-black text-[#111827]">{usageDashboard.totals.groqRequestCount}</span>
+                    </div>
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <span className="text-base font-medium text-slate-700">Gemini</span>
+                      <span className="text-2xl font-black text-[#111827]">{usageDashboard.totals.geminiRequestCount}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-base font-medium text-slate-700">ChatGPT</span>
+                      <span className="text-2xl font-black text-[#111827]">{usageDashboard.totals.chatgptRequestCount ?? 0}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="settings-card">
+                  <div className="text-sm font-medium uppercase tracking-wider text-slate-400">
+                    Failures and tokens
+                  </div>
+                  <div className="mt-6 text-6xl font-black text-red-600">
+                    {filteredTotals?.errorCount ?? 0}
+                  </div>
+                  <div className="mt-6 space-y-2 text-sm text-slate-600">
+                    <div className="flex justify-between">
+                      <span>Prompt tokens</span>
+                      <span className="font-semibold">{filteredTotals?.promptTokens ?? 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Completion tokens</span>
+                      <span className="font-semibold">{filteredTotals?.completionTokens ?? 0}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Recent Requests */}
+              <div className="settings-card">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="text-sm font-medium uppercase tracking-wider text-slate-400">
+                      Recent requests
+                    </div>
+                    <p className="mt-2 text-sm text-slate-600">
+                      Shared-password view of recent app-wide API activity.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={refreshUsageDashboard}
+                    disabled={isUsageLoading}
+                    className="settings-button-secondary"
+                  >
+                    Refresh
+                  </button>
+                </div>
+
+                {filteredEvents.length ? (
+                  <div className="mt-8 space-y-4">
+                    {filteredEvents.map((event, index) => (
+                      <div
+                        key={event._id}
+                        className="settings-event-card"
+                        style={{
+                          animationDelay: `${index * 50}ms`
+                        }}
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-center gap-4">
+                            <span
+                              className={`inline-flex rounded-md px-3 py-1.5 text-xs font-bold uppercase tracking-wider ${
+                                event.status === "success"
+                                  ? "bg-[#111827] text-white"
+                                  : "bg-red-600 text-white"
+                              }`}
+                            >
+                              {event.status}
+                            </span>
+                            <span className="text-sm font-medium text-slate-700">
+                              {formatProviderName(event.provider)} · {event.requestSource.replace(/_/g, " ")}
+                            </span>
+                          </div>
+                          <span className="text-sm font-medium text-slate-400">
+                            {formatRelativeTime(event.timestamp)}
+                          </span>
+                        </div>
+                        <div className="mt-4 flex flex-wrap gap-6 text-sm text-slate-600">
+                          <span><span className="font-medium">Latency:</span> {event.latencyMs}ms</span>
+                          <span><span className="font-medium">Tokens:</span> {event.totalTokens ?? 0}</span>
+                          <span><span className="font-medium">Model:</span> {event.model}</span>
+                        </div>
+                        {event.errorMessage && (
+                          <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+                            {event.errorMessage}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-8 text-center text-sm text-slate-500">
+                    No usage has been recorded yet for this account.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </section>
     </div>

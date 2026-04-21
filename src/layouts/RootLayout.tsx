@@ -34,20 +34,20 @@ export default function RootLayout() {
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen bg-[#faf9f5]">
+    <div className="min-h-screen bg-[#f8fafc]">
       {/* Skip links for screen readers */}
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-full focus:bg-[#1a7457] focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:outline-none focus:ring-2 focus:ring-[#1a7457] focus:ring-offset-2"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-full focus:bg-[#2563eb] focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:outline-none focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2"
       >
         Skip to main content
       </a>
-      <header className="sticky top-0 z-20 border-b border-[#e8e5de] bg-white/95 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-[#e2e8f0] bg-white/95 backdrop-blur">
         <div className="mx-auto flex h-20 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:h-24 sm:px-6">
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="DriveSafe AI" className="h-14 w-14 sm:h-16 sm:w-16" />
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#1a7457]">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#2563eb]">
                 Driver awareness monitor
               </p>
               <h2 className="mt-1 text-xl font-bold text-[#111827] sm:text-2xl">
@@ -56,7 +56,7 @@ export default function RootLayout() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <span className="hidden rounded-full border border-[#e8e5de] bg-[#faf9f5] px-4 py-2 text-sm font-medium text-slate-500 md:inline-flex">
+            <span className="hidden rounded-full border border-[#e2e8f0] bg-[#f8fafc] px-4 py-2 text-sm font-medium text-slate-500 md:inline-flex">
               Camera, speed, and shared usage controls
             </span>
             <Navigation className="hidden md:flex" />
@@ -64,7 +64,7 @@ export default function RootLayout() {
           </div>
         </div>
         {/* Mobile navigation - full width below header */}
-        <div className="border-t border-[#e8e5de] bg-white px-4 py-3 md:hidden">
+        <div className="border-t border-[#e2e8f0] bg-white px-4 py-3 md:hidden">
           <Navigation className="flex justify-center" />
         </div>
       </header>

@@ -21,8 +21,8 @@ export default function RouteErrorBoundary() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#faf9f5] px-4">
-      <div className="w-full max-w-md rounded-lg border border-[#e8e5de] bg-white p-8 text-center shadow-sm">
+    <div className="flex min-h-screen items-center justify-center bg-[#f8fafc] px-4">
+      <div className="w-full max-w-md rounded-lg border border-[#e2e8f0] bg-white p-8 text-center shadow-sm">
         <div className="mb-4 flex justify-center">
           <div className="rounded-full bg-red-50 p-3">
             <svg
@@ -52,14 +52,14 @@ export default function RouteErrorBoundary() {
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
           <button
             onClick={handleRetry}
-            className="rounded-lg bg-[#1a7457] px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#155d46] focus:outline-none focus:ring-2 focus:ring-[#1a7457] focus:ring-offset-2"
+            className="rounded-lg bg-[#2563eb] px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2"
           >
             Retry
           </button>
           
           <button
             onClick={handleGoHome}
-            className="rounded-lg border border-[#e8e5de] bg-white px-6 py-2.5 text-sm font-medium text-[#111827] transition-colors hover:bg-[#faf9f5] focus:outline-none focus:ring-2 focus:ring-[#1a7457] focus:ring-offset-2"
+            className="rounded-lg border border-[#e2e8f0] bg-white px-6 py-2.5 text-sm font-medium text-[#111827] transition-colors hover:bg-[#f8fafc] focus:outline-none focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2"
           >
             Go to Home
           </button>

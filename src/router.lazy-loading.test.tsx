@@ -5,7 +5,14 @@ import { router } from "./router";
 
 // Mock Convex hooks
 vi.mock("convex/react", () => ({
-  useQuery: vi.fn(() => null),
+  useQuery: vi.fn((query) => {
+    // Return null for auth queries (unauthenticated)
+    if (query === "mockLoggedInUser") {
+      return null;
+    }
+    // Return default settings for settings queries
+    return { apiProvider: "groq" };
+  }),
   useConvex: () => ({
     query: vi.fn().mockResolvedValue({
       totals: {
@@ -14,6 +21,7 @@ vi.mock("convex/react", () => ({
         errorCount: 0,
         groqRequestCount: 0,
         geminiRequestCount: 0,
+        chatgptRequestCount: 0,
         promptTokens: 0,
         completionTokens: 0,
         totalTokens: 0,
@@ -49,6 +57,9 @@ vi.mock("../convex/_generated/api", () => ({
     },
     usage: {
       getUsageDashboard: "mockGetUsageDashboard",
+    },
+    settings: {
+      getMySettings: "mockGetMySettings",
     },
   },
 }));

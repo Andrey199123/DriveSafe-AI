@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, query } from "./_generated/server";
 
-const providerValidator = v.union(v.literal("groq"), v.literal("gemini"));
+const providerValidator = v.union(v.literal("groq"), v.literal("gemini"), v.literal("chatgpt"));
 const requestSourceValidator = v.union(
   v.literal("live_camera"),
   v.literal("uploaded_image"),
@@ -53,6 +53,8 @@ export const recordUsageEvent = internalMutation({
         (existingSummary?.groqRequestCount ?? 0) + (args.provider === "groq" ? 1 : 0),
       geminiRequestCount:
         (existingSummary?.geminiRequestCount ?? 0) + (args.provider === "gemini" ? 1 : 0),
+      chatgptRequestCount:
+        (existingSummary?.chatgptRequestCount ?? 0) + (args.provider === "chatgpt" ? 1 : 0),
       promptTokens: (existingSummary?.promptTokens ?? 0) + (args.promptTokens ?? 0),
       completionTokens:
         (existingSummary?.completionTokens ?? 0) + (args.completionTokens ?? 0),
@@ -94,6 +96,7 @@ export const getUsageDashboard = query({
         acc.errorCount += summary.errorCount;
         acc.groqRequestCount += summary.groqRequestCount;
         acc.geminiRequestCount += summary.geminiRequestCount;
+        acc.chatgptRequestCount += summary.chatgptRequestCount ?? 0;
         acc.promptTokens += summary.promptTokens;
         acc.completionTokens += summary.completionTokens;
         acc.totalTokens += summary.totalTokens;
@@ -106,6 +109,7 @@ export const getUsageDashboard = query({
         errorCount: 0,
         groqRequestCount: 0,
         geminiRequestCount: 0,
+        chatgptRequestCount: 0,
         promptTokens: 0,
         completionTokens: 0,
         totalTokens: 0,

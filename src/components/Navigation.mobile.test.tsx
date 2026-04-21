@@ -36,7 +36,7 @@ describe("Navigation Mobile Optimizations", () => {
     // Active link should still have minimum touch target size
     expect(monitorLink).toHaveClass("min-h-[44px]");
     expect(monitorLink).toHaveClass("min-w-[44px]");
-    expect(monitorLink).toHaveClass("bg-[#1a7457]");
+    expect(monitorLink).toHaveClass("bg-[#2563eb]");
   });
 
   it("has proper spacing between touch targets", () => {

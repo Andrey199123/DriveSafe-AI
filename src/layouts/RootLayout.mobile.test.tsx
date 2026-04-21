@@ -64,7 +64,7 @@ describe("RootLayout Mobile Navigation", () => {
     const mobileNavContainer = container.querySelector(".md\\:hidden");
     expect(mobileNavContainer).toBeInTheDocument();
     expect(mobileNavContainer).toHaveClass("border-t");
-    expect(mobileNavContainer).toHaveClass("border-[#e8e5de]");
+    expect(mobileNavContainer).toHaveClass("border-[#e2e8f0]");
     expect(mobileNavContainer).toHaveClass("bg-white");
     expect(mobileNavContainer).toHaveClass("px-4");
     expect(mobileNavContainer).toHaveClass("py-3");

@@ -18,6 +18,7 @@ import type * as auth from "../auth.js";
 import type * as detections from "../detections.js";
 import type * as http from "../http.js";
 import type * as router from "../router.js";
+import type * as settings from "../settings.js";
 import type * as usage from "../usage.js";
 
 /**
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   detections: typeof detections;
   http: typeof http;
   router: typeof router;
+  settings: typeof settings;
   usage: typeof usage;
 }>;
 export declare const api: FilterApi<

@@ -6,11 +6,14 @@ import SettingsPage from "./SettingsPage";
 
 // Mock Convex hooks
 const mockConvexQuery = vi.fn();
+const mockUseQuery = vi.fn();
 
 vi.mock("convex/react", () => ({
   useConvex: () => ({
     query: mockConvexQuery,
   }),
+  useQuery: () => mockUseQuery(),
+  useMutation: () => vi.fn(),
 }));
 
 // Mock Convex API
@@ -19,7 +22,16 @@ vi.mock("../../convex/_generated/api", () => ({
     usage: {
       getUsageDashboard: "mockGetUsageDashboard",
     },
+    settings: {
+      getMySettings: "mockGetMySettings",
+    },
   },
+}));
+
+vi.mock("../components/ProviderSelector", () => ({
+  ProviderSelector: ({ password }: { password: string }) => (
+    <div data-testid="provider-selector">Provider selector password: {password}</div>
+  ),
 }));
 
 // Mock sonner toast
@@ -33,6 +45,10 @@ vi.mock("sonner", () => ({
 describe("SettingsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Mock default settings response
+    mockUseQuery.mockReturnValue({
+      apiProvider: "groq",
+    });
   });
 
   describe("Password Form Rendering", () => {
@@ -43,7 +59,7 @@ describe("SettingsPage", () => {
         </BrowserRouter>
       );
 
-      expect(screen.getByText("Settings")).toBeInTheDocument();
+      expect(screen.getByText("USAGE DASHBOARD")).toBeInTheDocument();
       expect(screen.getByText("Shared usage dashboard")).toBeInTheDocument();
     });
 
@@ -145,6 +161,7 @@ describe("SettingsPage", () => {
           errorCount: 5,
           groqRequestCount: 60,
           geminiRequestCount: 40,
+          chatgptRequestCount: 0,
           promptTokens: 5000,
           completionTokens: 3000,
           totalTokens: 8000,
@@ -185,6 +202,7 @@ describe("SettingsPage", () => {
           errorCount: 10,
           groqRequestCount: 90,
           geminiRequestCount: 60,
+          chatgptRequestCount: 0,
           promptTokens: 7500,
           completionTokens: 4500,
           totalTokens: 12000,
@@ -224,6 +242,7 @@ describe("SettingsPage", () => {
           errorCount: 5,
           groqRequestCount: 60,
           geminiRequestCount: 40,
+          chatgptRequestCount: 25,
           promptTokens: 5000,
           completionTokens: 3000,
           totalTokens: 8000,
@@ -251,6 +270,8 @@ describe("SettingsPage", () => {
         expect(screen.getByText("60")).toBeInTheDocument();
         expect(screen.getByText("Gemini")).toBeInTheDocument();
         expect(screen.getByText("40")).toBeInTheDocument();
+        expect(screen.getByText("ChatGPT")).toBeInTheDocument();
+        expect(screen.getByText("25")).toBeInTheDocument();
       });
     });
 
@@ -263,6 +284,7 @@ describe("SettingsPage", () => {
           errorCount: 5,
           groqRequestCount: 60,
           geminiRequestCount: 40,
+          chatgptRequestCount: 0,
           promptTokens: 5000,
           completionTokens: 3000,
           totalTokens: 8000,
@@ -299,6 +321,7 @@ describe("SettingsPage", () => {
           errorCount: 5,
           groqRequestCount: 60,
           geminiRequestCount: 40,
+          chatgptRequestCount: 0,
           promptTokens: 5000,
           completionTokens: 3000,
           totalTokens: 8000,
@@ -343,6 +366,7 @@ describe("SettingsPage", () => {
           errorCount: 5,
           groqRequestCount: 60,
           geminiRequestCount: 40,
+          chatgptRequestCount: 12,
           promptTokens: 5000,
           completionTokens: 3000,
           totalTokens: 8000,
@@ -351,8 +375,8 @@ describe("SettingsPage", () => {
         recentEvents: [
           {
             _id: "event1",
-            provider: "groq" as const,
-            model: "llama-3.2-90b-vision-preview",
+            provider: "chatgpt" as const,
+            model: "gpt-4o",
             requestSource: "live_camera" as const,
             status: "success" as const,
             latencyMs: 1500,
@@ -380,9 +404,13 @@ describe("SettingsPage", () => {
 
       await waitFor(() => {
         expect(screen.getByText("success")).toBeInTheDocument();
-        expect(screen.getByText(/GROQ/)).toBeInTheDocument();
+        expect(screen.getAllByText(/ChatGPT/).length).toBeGreaterThanOrEqual(1);
         expect(screen.getByText(/live camera/)).toBeInTheDocument();
-        expect(screen.getByText(/Latency: 1500ms/)).toBeInTheDocument();
+        // Check for latency value - it's split across elements, use getAllByText
+        const latencyElements = screen.getAllByText((content, element) => {
+          return element?.textContent?.includes("Latency:") && element?.textContent?.includes("1500") || false;
+        });
+        expect(latencyElements.length).toBeGreaterThan(0);
       });
     });
 
@@ -395,6 +423,7 @@ describe("SettingsPage", () => {
           errorCount: 0,
           groqRequestCount: 0,
           geminiRequestCount: 0,
+          chatgptRequestCount: 0,
           promptTokens: 0,
           completionTokens: 0,
           totalTokens: 0,
@@ -422,6 +451,84 @@ describe("SettingsPage", () => {
           screen.getByText("No usage has been recorded yet for this account.")
         ).toBeInTheDocument();
       });
+    });
+  });
+
+  describe("Provider Selection Integration", () => {
+    it("shows ProviderSelector after password authentication", async () => {
+      const user = userEvent.setup();
+      mockConvexQuery.mockResolvedValueOnce({
+        totals: {
+          requestCount: 0,
+          successCount: 0,
+          errorCount: 0,
+          groqRequestCount: 0,
+          geminiRequestCount: 0,
+          chatgptRequestCount: 0,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          lastRequestAt: null,
+        },
+        recentEvents: [],
+      });
+
+      render(
+        <BrowserRouter>
+          <SettingsPage />
+        </BrowserRouter>,
+      );
+
+      await user.type(
+        screen.getByPlaceholderText("Usage dashboard password"),
+        "correctpassword",
+      );
+      await user.click(screen.getByRole("button", { name: /Unlock dashboard/i }));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("provider-selector")).toBeInTheDocument();
+        expect(screen.getByText("Provider selector password: correctpassword")).toBeInTheDocument();
+      });
+    });
+
+    it("hides ProviderSelector when the dashboard is locked", async () => {
+      const user = userEvent.setup();
+      mockConvexQuery.mockResolvedValueOnce({
+        totals: {
+          requestCount: 0,
+          successCount: 0,
+          errorCount: 0,
+          groqRequestCount: 0,
+          geminiRequestCount: 0,
+          chatgptRequestCount: 0,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          lastRequestAt: null,
+        },
+        recentEvents: [],
+      });
+
+      render(
+        <BrowserRouter>
+          <SettingsPage />
+        </BrowserRouter>,
+      );
+
+      await user.type(
+        screen.getByPlaceholderText("Usage dashboard password"),
+        "correctpassword",
+      );
+      await user.click(screen.getByRole("button", { name: /Unlock dashboard/i }));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("provider-selector")).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole("button", { name: /Lock dashboard/i }));
+
+      expect(screen.queryByTestId("provider-selector")).not.toBeInTheDocument();
+      expect(screen.getByPlaceholderText("Usage dashboard password")).toBeInTheDocument();
     });
   });
 });

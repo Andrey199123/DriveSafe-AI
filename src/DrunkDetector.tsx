@@ -104,13 +104,6 @@ export function DrunkDetector() {
   const [speedLimitMph, setSpeedLimitMph] = useState<number | null>(null);
   const geoPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Request notification permission on mount
-  useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, []);
-
   useEffect(() => {
     if (!("speechSynthesis" in window)) return;
     const speech = window.speechSynthesis;
@@ -150,9 +143,9 @@ export function DrunkDetector() {
     };
   }, []);
 
-  // Geolocation and speed tracking
+  // Geolocation and speed tracking - only when monitoring
   useEffect(() => {
-    if (!('geolocation' in navigator)) return;
+    if (!isMonitoring || !('geolocation' in navigator)) return;
 
     const updateSmoothedSpeed = (nextSpeedMph: number) => {
       const boundedSpeed = Math.max(0, nextSpeedMph);
@@ -243,7 +236,7 @@ export function DrunkDetector() {
       navigator.geolocation.clearWatch(watchId);
       if (geoPollIntervalRef.current) clearInterval(geoPollIntervalRef.current);
     };
-  }, []);
+  }, [isMonitoring]);
 
   const fetchSpeedLimit = async (lat: number, lon: number) => {
     try {
@@ -687,6 +680,11 @@ export function DrunkDetector() {
     try {
       setCameraError(null);
       
+      // Request notification permission when starting monitoring
+      if ("Notification" in window && Notification.permission === "default") {
+        await Notification.requestPermission();
+      }
+      
       // Clear any uploaded video when starting live monitoring
       if (uploadedVideo) {
         clearUploadedVideo();
@@ -757,7 +755,7 @@ export function DrunkDetector() {
     } else if (currentResult.isDistracted && currentResult.confidence >= 30) {
       return "border-yellow-500";
     }
-    return "border-[#1a7457]";
+    return "border-[#2563eb]";
   };
 
   const getStateText = () => {
@@ -774,7 +772,7 @@ export function DrunkDetector() {
   };
 
   const getStateColor = () => {
-    if (!currentResult) return "text-[#1a7457]";
+    if (!currentResult) return "text-[#2563eb]";
     
     if (currentResult.isDrunk && currentResult.confidence >= 30) {
       return "text-red-600";
@@ -783,7 +781,7 @@ export function DrunkDetector() {
     } else if (currentResult.isDistracted && currentResult.confidence >= 30) {
       return "text-yellow-600";
     }
-    return "text-[#1a7457]";
+    return "text-[#2563eb]";
   };
 
   const modeLabel = isVideoMode
@@ -798,7 +796,7 @@ export function DrunkDetector() {
       : uploadedVideo || uploadedImage
         ? "Media loaded"
         : "Waiting to begin";
-  const statusTextColor = currentResult ? getStateColor() : "text-[#1a7457]";
+  const statusTextColor = currentResult ? getStateColor() : "text-[#2563eb]";
   const isOverSpeed =
     currentSpeedMph != null && speedLimitMph != null && currentSpeedMph > speedLimitMph;
   const detailCards = [
@@ -836,8 +834,8 @@ export function DrunkDetector() {
 
   return (
     <div className="space-y-8">
-      <section className="overflow-hidden rounded-[28px] border border-[#e8e5de] bg-white shadow-[0_16px_64px_rgba(17,24,39,0.06)]">
-        <div className="border-b border-[#e8e5de] px-5 py-6 sm:px-8 sm:py-8">
+      <section className="overflow-hidden rounded-[28px] border border-[#e2e8f0] bg-white shadow-[0_16px_64px_rgba(17,24,39,0.06)]">
+        <div className="border-b border-[#e2e8f0] px-5 py-6 sm:px-8 sm:py-8">
           <input
             ref={fileInputRef}
             type="file"
@@ -847,10 +845,10 @@ export function DrunkDetector() {
           />
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
-              <span className="inline-flex items-center rounded-full bg-[#f0fdf4] px-4 py-1.5 text-sm font-semibold text-[#1a7457]">
+              <span className="inline-flex items-center rounded-full bg-[#eff6ff] px-4 py-1.5 text-sm font-semibold text-[#2563eb]">
                 Driver safety workspace
               </span>
-              <h2 className="mt-4 text-4xl font-black tracking-[-0.04em] text-[#111827] sm:text-5xl">
+              <h2 className="mt-4 text-4xl font-black tracking-normal text-[#111827] sm:text-5xl">
                 {modeLabel}
               </h2>
               <p className="mt-4 max-w-2xl text-base leading-7 text-slate-500 sm:text-lg">
@@ -861,7 +859,7 @@ export function DrunkDetector() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center justify-center rounded-full border border-[#e8e5de] bg-white px-5 py-3 text-sm font-semibold text-slate-600 transition hover:border-[#1a7457] hover:text-[#1a7457] focus:outline-none focus:ring-2 focus:ring-[#1a7457] focus:ring-offset-2"
+                className="inline-flex items-center justify-center rounded-full border border-[#e2e8f0] bg-white px-5 py-3 text-sm font-semibold text-slate-600 transition hover:border-[#2563eb] hover:text-[#2563eb] focus:outline-none focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2"
               >
                 Upload media
               </button>
@@ -872,12 +870,12 @@ export function DrunkDetector() {
             {detailCards.map((card) => (
               <div
                 key={card.label}
-                className="rounded-[22px] border border-[#e8e5de] bg-[#faf9f5] p-5"
+                className="rounded-[22px] border border-[#e2e8f0] bg-[#f8fafc] p-5"
               >
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
                   {card.label}
                 </p>
-                <p className="mt-3 text-2xl font-black tracking-[-0.04em] text-[#111827]">
+                <p className="mt-3 text-2xl font-black tracking-normal text-[#111827]">
                   {card.value}
                 </p>
                 <p className="mt-2 text-sm text-slate-500">{card.note}</p>
@@ -888,7 +886,7 @@ export function DrunkDetector() {
 
         <div className="grid gap-8 px-5 py-6 sm:px-8 sm:py-8 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,0.9fr)]">
           <div className="space-y-5">
-            <div className="relative rounded-[28px] border border-[#e8e5de] bg-[#f6f4ee] p-4 sm:p-5">
+            <div className="relative rounded-[28px] border border-[#e2e8f0] bg-[#eff6ff] p-4 sm:p-5">
               {uploadedImage && !isVideoMode ? (
                 <img
                   src={uploadedImage}
@@ -905,7 +903,7 @@ export function DrunkDetector() {
                   controls={isVideoMode}
                   src={uploadedVideo || undefined}
                   className={`block w-full rounded-[24px] border-2 ${
-                    isMonitoring || isVideoMode ? getAlertStyle() : "border-[#d9d3c7]"
+                    isMonitoring || isVideoMode ? getAlertStyle() : "border-[#bfdbfe]"
                   } bg-white shadow-[0_16px_48px_rgba(17,24,39,0.08)]`}
                   style={{ minHeight: "320px" }}
                 />
@@ -913,7 +911,7 @@ export function DrunkDetector() {
               <canvas ref={canvasRef} className="hidden" />
 
               <div className="absolute left-4 right-4 top-4 flex flex-wrap items-center justify-between gap-3">
-                <div className="rounded-full border border-[#e8e5de] bg-white/95 px-4 py-2 shadow-sm backdrop-blur">
+                <div className="rounded-full border border-[#e2e8f0] bg-white/95 px-4 py-2 shadow-sm backdrop-blur">
                   <div className="flex items-center gap-3">
                     <span className={`text-xs font-semibold uppercase tracking-[0.24em] ${statusTextColor}`}>
                       {statusLabel}
@@ -929,7 +927,7 @@ export function DrunkDetector() {
                   <button
                     type="button"
                     onClick={clearUploadedVideo}
-                    className="rounded-full border border-[#e8e5de] bg-white/95 px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm backdrop-blur transition hover:border-[#1a7457] hover:text-[#1a7457] focus:outline-none focus:ring-2 focus:ring-[#1a7457] focus:ring-offset-2"
+                    className="rounded-full border border-[#e2e8f0] bg-white/95 px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm backdrop-blur transition hover:border-[#2563eb] hover:text-[#2563eb] focus:outline-none focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2"
                   >
                     Clear media
                   </button>
@@ -937,12 +935,12 @@ export function DrunkDetector() {
               </div>
 
               <div className="absolute bottom-4 left-4 right-4 sm:left-auto sm:w-auto">
-                <div className="flex min-w-[250px] items-center justify-between gap-6 rounded-[20px] border border-[#e8e5de] bg-white/95 px-5 py-4 shadow-sm backdrop-blur">
+                <div className="flex min-w-[250px] items-center justify-between gap-6 rounded-[20px] border border-[#e2e8f0] bg-white/95 px-5 py-4 shadow-sm backdrop-blur">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
                       Speed
                     </p>
-                    <p className="mt-2 text-3xl font-black tracking-[-0.04em] text-[#111827]">
+                    <p className="mt-2 text-3xl font-black tracking-normal text-[#111827]">
                       {currentSpeedMph != null ? Math.round(currentSpeedMph) : "--"}
                       <span className="ml-2 text-sm font-semibold tracking-[0.16em] text-slate-400">
                         mph
@@ -953,8 +951,8 @@ export function DrunkDetector() {
                     <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
                       Road limit
                     </p>
-                    <p className={`mt-2 text-3xl font-black tracking-[-0.04em] ${
-                      isOverSpeed ? "text-red-600" : "text-[#1a7457]"
+                    <p className={`mt-2 text-3xl font-black tracking-normal ${
+                      isOverSpeed ? "text-red-600" : "text-[#2563eb]"
                     }`}>
                       {speedLimitMph != null ? speedLimitMph : "--"}
                       <span className="ml-2 text-sm font-semibold tracking-[0.16em] text-slate-400">
@@ -977,7 +975,7 @@ export function DrunkDetector() {
               {!isVideoMode && !isMonitoring && (
                 <button
                   onClick={startMonitoring}
-                  className="inline-flex items-center justify-center rounded-full bg-[#111827] px-6 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1a7457] focus:ring-offset-2"
+                  className="inline-flex items-center justify-center rounded-full bg-[#111827] px-6 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2"
                 >
                   Start monitoring
                 </button>
@@ -997,7 +995,7 @@ export function DrunkDetector() {
                 <button
                   onClick={analyzeUploadedVideo}
                   disabled={isAnalyzing}
-                  className="inline-flex items-center justify-center rounded-full bg-[#111827] px-6 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#1a7457] focus:ring-offset-2"
+                  className="inline-flex items-center justify-center rounded-full bg-[#111827] px-6 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2"
                 >
                   Analyze video
                 </button>
@@ -1007,7 +1005,7 @@ export function DrunkDetector() {
                 <button
                   onClick={analyzeUploadedImage}
                   disabled={isAnalyzing}
-                  className="inline-flex items-center justify-center rounded-full bg-[#111827] px-6 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#1a7457] focus:ring-offset-2"
+                  className="inline-flex items-center justify-center rounded-full bg-[#111827] px-6 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2"
                 >
                   Analyze image
                 </button>
@@ -1015,9 +1013,9 @@ export function DrunkDetector() {
             </div>
 
             {isAnalyzing && (
-              <div className="rounded-[22px] border border-[#e8e5de] bg-[#faf9f5] px-5 py-4">
+              <div className="rounded-[22px] border border-[#e2e8f0] bg-[#f8fafc] px-5 py-4">
                 <div className="inline-flex items-center gap-3 text-slate-600">
-                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-[#1a7457]"></div>
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-[#2563eb]"></div>
                   <span className="text-sm font-semibold uppercase tracking-[0.18em]">
                     {isVideoMode ? "Analyzing video" : "Analyzing live feed"}
                   </span>
@@ -1025,8 +1023,8 @@ export function DrunkDetector() {
               </div>
             )}
 
-            <div className="rounded-[22px] border border-[#e8e5de] bg-[#faf9f5] p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#1a7457]">
+            <div className="rounded-[22px] border border-[#e2e8f0] bg-[#f8fafc] p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#2563eb]">
                 Driver notes
               </p>
               {!isVideoMode && (
@@ -1041,11 +1039,11 @@ export function DrunkDetector() {
           </div>
 
           <aside className="space-y-4">
-            <div className="rounded-[24px] border border-[#e8e5de] bg-[#faf9f5] p-6">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#1a7457]">
+            <div className="rounded-[24px] border border-[#e2e8f0] bg-[#f8fafc] p-6">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#2563eb]">
                 Current assessment
               </p>
-              <p className={`mt-4 text-3xl font-black tracking-[-0.04em] ${statusTextColor}`}>
+              <p className={`mt-4 text-3xl font-black tracking-normal ${statusTextColor}`}>
                 {statusLabel}
               </p>
               <p className="mt-3 text-sm leading-6 text-slate-500">
@@ -1055,7 +1053,7 @@ export function DrunkDetector() {
               </p>
             </div>
 
-            <div className="rounded-[24px] border border-[#e8e5de] bg-white p-6 shadow-[0_16px_40px_rgba(17,24,39,0.04)]">
+            <div className="rounded-[24px] border border-[#e2e8f0] bg-white p-6 shadow-[0_16px_40px_rgba(17,24,39,0.04)]">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
                 Snapshot
               </p>
@@ -1063,7 +1061,7 @@ export function DrunkDetector() {
                 {resultCards.map((card) => (
                   <div
                     key={card.label}
-                    className="rounded-[18px] border border-[#e8e5de] bg-[#faf9f5] px-4 py-4"
+                    className="rounded-[18px] border border-[#e2e8f0] bg-[#f8fafc] px-4 py-4"
                   >
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
                       {card.label}
@@ -1080,12 +1078,12 @@ export function DrunkDetector() {
       </section>
 
       {currentResult && (
-        <section className="rounded-[28px] border border-[#e8e5de] bg-white p-5 shadow-[0_16px_64px_rgba(17,24,39,0.06)] sm:p-8">
+        <section className="rounded-[28px] border border-[#e2e8f0] bg-white p-5 shadow-[0_16px_64px_rgba(17,24,39,0.06)] sm:p-8">
           <div className="max-w-3xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#1a7457]">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#2563eb]">
               Latest analysis
             </p>
-            <h3 className="mt-3 text-3xl font-black tracking-[-0.04em] text-[#111827] sm:text-4xl">
+            <h3 className="mt-3 text-3xl font-black tracking-normal text-[#111827] sm:text-4xl">
               Detailed frame review
             </h3>
             <p className="mt-3 text-sm leading-6 text-slate-500">
@@ -1097,32 +1095,32 @@ export function DrunkDetector() {
             {resultCards.map((card) => (
               <div
                 key={card.label}
-                className="rounded-[22px] border border-[#e8e5de] bg-[#faf9f5] p-5"
+                className="rounded-[22px] border border-[#e2e8f0] bg-[#f8fafc] p-5"
               >
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
                   {card.label}
                 </p>
-                <p className={`mt-3 text-2xl font-black tracking-[-0.04em] ${card.active ? card.activeClass : "text-slate-400"}`}>
+                <p className={`mt-3 text-2xl font-black tracking-normal ${card.active ? card.activeClass : "text-slate-400"}`}>
                   {card.value}
                 </p>
               </div>
             ))}
           </div>
 
-          <div className="mt-6 rounded-[24px] border border-[#e8e5de] bg-[#faf9f5] p-6">
+          <div className="mt-6 rounded-[24px] border border-[#e2e8f0] bg-[#f8fafc] p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
                   Confidence
                 </p>
-                <p className="mt-2 text-4xl font-black tracking-[-0.05em] text-[#111827]">
+                <p className="mt-2 text-4xl font-black tracking-normal text-[#111827]">
                   {currentResult.confidence}%
                 </p>
               </div>
               <div className="w-full sm:max-w-sm">
-                <div className="h-3 overflow-hidden rounded-full bg-[#e8e5de]">
+                <div className="h-3 overflow-hidden rounded-full bg-[#e2e8f0]">
                   <div
-                    className="h-3 rounded-full bg-[#1a7457] transition-all duration-500"
+                    className="h-3 rounded-full bg-[#2563eb] transition-all duration-500"
                     style={{ width: `${currentResult.confidence}%` }}
                   ></div>
                 </div>
@@ -1138,9 +1136,9 @@ export function DrunkDetector() {
                   {currentResult.indicators.map((indicator, index) => (
                     <li
                       key={index}
-                      className="flex items-center gap-3 rounded-[18px] border border-[#e8e5de] bg-white px-4 py-3 text-sm font-medium text-slate-700"
+                      className="flex items-center gap-3 rounded-[18px] border border-[#e2e8f0] bg-white px-4 py-3 text-sm font-medium text-slate-700"
                     >
-                      <span className="h-2.5 w-2.5 rounded-full bg-[#1a7457]"></span>
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#2563eb]"></span>
                       <span className="capitalize">{indicator}</span>
                     </li>
                   ))}
