@@ -24,6 +24,18 @@ out/
 .kiro/
 .codex/
 
+# Congressional Showcase (separate repo)
+Congressional-Showcase/
+
+# Temporary showcase files
+FL-25-showcase-*.html
+
+# iOS documentation
+IOS_BUILD_AND_REVIEW.md
+
+# Temporary favicon files
+public/favicon.jpg
+
 # Vite
 .vite/
 vite.config.js.timestamp-*
