@@ -14,6 +14,8 @@ const requestSourceValidator = v.union(
 export const getOrCreateGuestUser = internalMutation({
   args: {},
   handler: async (ctx): Promise<Id<"users">> => {
+    console.log("[getOrCreateGuestUser] Starting guest user lookup/creation");
+    
     // Look for existing guest user by email
     const existingGuest = await ctx.db
       .query("users")
@@ -21,17 +23,26 @@ export const getOrCreateGuestUser = internalMutation({
       .first();
 
     if (existingGuest) {
+      console.log("[getOrCreateGuestUser] Found existing guest user:", existingGuest._id);
       return existingGuest._id;
     }
 
-    // Create a guest user if it doesn't exist
-    const guestUserId = await ctx.db.insert("users", {
-      email: "guest@drivesafe.app",
-      name: "Guest User",
-      emailVerificationTime: Date.now(),
-    });
+    console.log("[getOrCreateGuestUser] No guest user found, creating new one");
+    
+    try {
+      // Create a guest user if it doesn't exist
+      const guestUserId = await ctx.db.insert("users", {
+        email: "guest@drivesafe.app",
+        name: "Guest User",
+        emailVerificationTime: Date.now(),
+      });
 
-    return guestUserId;
+      console.log("[getOrCreateGuestUser] Created new guest user:", guestUserId);
+      return guestUserId;
+    } catch (error) {
+      console.error("[getOrCreateGuestUser] Failed to create guest user:", error);
+      throw error;
+    }
   },
 });
   },

@@ -485,13 +485,17 @@ export function DrunkDetector() {
       while (!result && attempts < maxAttempts) {
         try {
           attempts++;
+          console.log(`[Frontend] Calling analyzeFrame attempt ${attempts}`);
           result = await analyzeImageWithVision(base64Image, "live_camera");
+          console.log(`[Frontend] analyzeFrame succeeded:`, result);
           break;
         } catch (error) {
-          console.warn(`Analysis attempt ${attempts} failed:`, (error as Error).message);
+          console.error(`[Frontend] Analysis attempt ${attempts} failed:`, error);
+          console.error(`[Frontend] Error details:`, (error as Error).message, (error as Error).stack);
           if (attempts === maxAttempts) {
             // On final failure, keep previous result if it exists
-            console.error("Analysis failed, keeping previous result");
+            console.error("[Frontend] Analysis failed after all attempts, keeping previous result");
+            toast.error("Analysis failed. Please check your connection.");
             return;
           }
           // Wait 5 seconds before retry
