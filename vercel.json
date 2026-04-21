@@ -1,8 +1,13 @@
 {
-  "rewrites": [
+  "buildCommand": "vite build",
+  "outputDirectory": "dist",
+  "routes": [
     {
-      "source": "/((?!assets|icon-|favicon|manifest\\.json|sw\\.js).*)",
-      "destination": "/index.html"
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ],
   "headers": [
