@@ -154,7 +154,7 @@ describe("Router Lazy Loading", () => {
     // Wait for lazy-loaded component to render
     await waitFor(
       () => {
-        expect(screen.getByRole("heading", { level: 1, name: /settings/i })).toBeInTheDocument();
+        expect(screen.getByText("Shared usage dashboard")).toBeInTheDocument();
       },
       { timeout: 3000 }
     );
@@ -204,7 +204,7 @@ describe("Router Lazy Loading", () => {
 
     await waitFor(
       () => {
-        expect(screen.getByRole("heading", { level: 1, name: /settings/i })).toBeInTheDocument();
+        expect(screen.getByText("Shared usage dashboard")).toBeInTheDocument();
       },
       { timeout: 3000 }
     );

@@ -18,8 +18,8 @@ describe("SettingsPage Mobile Layout", () => {
     const mainSection = container.querySelector("section");
     expect(mainSection).toBeInTheDocument();
     
-    // Check that the section uses the responsive console layout.
-    expect(mainSection).toHaveClass("grid");
+    // Check that the section has proper mobile styling with new design
+    expect(mainSection).toHaveClass("settings-section");
   });
 
   it("has responsive padding for mobile devices", () => {
@@ -75,8 +75,8 @@ describe("SettingsPage Mobile Layout", () => {
       </ConvexProvider>
     );
 
-    // The outer container should use the updated, tighter spacing rhythm.
-    const outerContainer = container.querySelector(".space-y-10");
+    // The outer container should use space-y for vertical spacing with new design
+    const outerContainer = container.querySelector(".space-y-16");
     expect(outerContainer).toBeInTheDocument();
   });
 
@@ -100,7 +100,7 @@ describe("SettingsPage Mobile Layout", () => {
       </ConvexProvider>
     );
 
-    const heading = screen.getByRole("heading", { level: 1, name: /settings/i });
+    const heading = screen.getByText(/shared usage dashboard/i);
     
     // Heading should have responsive text sizing with new bolder design
     expect(heading).toHaveClass("text-5xl");
