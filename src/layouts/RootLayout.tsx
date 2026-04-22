@@ -42,23 +42,20 @@ export default function RootLayout() {
       >
         Skip to main content
       </a>
-      <header className="sticky top-0 z-20 border-b border-[#e2e8f0] bg-white/95 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-[#cbd5e1] bg-white/95 backdrop-blur">
         <div className="mx-auto flex h-20 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:h-24 sm:px-6">
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="DriveSafe AI" className="h-14 w-14 sm:h-16 sm:w-16" />
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#2563eb]">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#2563eb]">
                 Driver awareness monitor
               </p>
-              <h2 className="mt-1 text-xl font-bold text-[#111827] sm:text-2xl">
+              <h2 className="mt-1 text-xl font-black text-[#111827] sm:text-2xl">
                 DriveSafe AI
               </h2>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <span className="hidden rounded-full border border-[#e2e8f0] bg-[#f8fafc] px-4 py-2 text-sm font-medium text-slate-500 md:inline-flex">
-              Camera, speed, and shared usage controls
-            </span>
             <Navigation className="hidden md:flex" />
             <SignOutButton />
           </div>

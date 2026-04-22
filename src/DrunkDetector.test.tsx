@@ -89,7 +89,7 @@ describe("DrunkDetector - Cleanup Verification (Task 9.3)", () => {
     it("should render the monitoring interface", () => {
       render(<DrunkDetector />);
       
-      expect(screen.getByText(/Driver safety workspace/i)).toBeInTheDocument();
+      expect(screen.getByText(/Cabin monitor/i)).toBeInTheDocument();
       const liveMonitoringElements = screen.getAllByText(/Live monitoring/i);
       expect(liveMonitoringElements.length).toBeGreaterThan(0);
     });
@@ -128,7 +128,7 @@ describe("DrunkDetector - Cleanup Verification (Task 9.3)", () => {
     it("should display current assessment section", () => {
       render(<DrunkDetector />);
       
-      expect(screen.getByText(/Current assessment/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/^Assessment$/i).length).toBeGreaterThan(0);
       const waitingElements = screen.getAllByText(/Waiting to begin/i);
       expect(waitingElements.length).toBeGreaterThan(0);
     });
@@ -170,14 +170,14 @@ describe("DrunkDetector - Cleanup Verification (Task 9.3)", () => {
     it("should display driver notes section", () => {
       render(<DrunkDetector />);
       
-      expect(screen.getByText(/Driver notes/i)).toBeInTheDocument();
+      expect(screen.getByText(/Operating note/i)).toBeInTheDocument();
       expect(screen.getByText(/Keep your eyes on the road/i)).toBeInTheDocument();
     });
 
     it("should display snapshot section with result cards", () => {
       render(<DrunkDetector />);
       
-      expect(screen.getByText(/Snapshot/i)).toBeInTheDocument();
+      expect(screen.getByText(/Signal map/i)).toBeInTheDocument();
       
       // Verify all three result cards are present
       const alcoholCues = screen.getAllByText(/Alcohol cues/i);
@@ -195,8 +195,8 @@ describe("DrunkDetector - Cleanup Verification (Task 9.3)", () => {
       render(<DrunkDetector />);
       
       // Verify no landing page marketing content
-      expect(screen.queryByText(/Built for practical, low-distraction driver checks/i)).not.toBeInTheDocument();
-      expect(screen.queryByText(/A calmer interface for driver attention and motion awareness/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Driver awareness, without dashboard noise/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/DriveSafe AI keeps the cabin check clear and motion awareness/i)).not.toBeInTheDocument();
     });
 
     it("should NOT display sign-in controls", () => {
@@ -212,7 +212,7 @@ describe("DrunkDetector - Cleanup Verification (Task 9.3)", () => {
       const { container } = render(<DrunkDetector />);
       
       // Verify the component contains monitoring-specific content
-      expect(screen.getByText(/Driver safety workspace/i)).toBeInTheDocument();
+      expect(screen.getByText(/Cabin monitor/i)).toBeInTheDocument();
       const liveMonitoringElements = screen.getAllByText(/Live monitoring/i);
       expect(liveMonitoringElements.length).toBeGreaterThan(0);
       

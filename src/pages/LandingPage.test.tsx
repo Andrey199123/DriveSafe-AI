@@ -48,7 +48,7 @@ describe("LandingPage", () => {
         </BrowserRouter>
       );
 
-      expect(screen.getByText("Built for practical, low-distraction driver checks")).toBeInTheDocument();
+      expect(screen.getByText("Driver awareness, without dashboard noise")).toBeInTheDocument();
     });
 
     it("should render the main headline", () => {
@@ -61,7 +61,7 @@ describe("LandingPage", () => {
       );
 
       expect(
-        screen.getByText("A calmer interface for driver attention and motion awareness.")
+        screen.getByText("DriveSafe AI keeps the cabin check clear.")
       ).toBeInTheDocument();
     });
 
@@ -107,7 +107,7 @@ describe("LandingPage", () => {
       );
 
       expect(
-        screen.getByText(/Sign in with email or continue anonymously to test the monitor/i)
+        screen.getByText(/Sign in with email or continue anonymously to run a live cabin check/i)
       ).toBeInTheDocument();
     });
   });
@@ -147,7 +147,7 @@ describe("LandingPage", () => {
       );
 
       expect(
-        screen.getByText(/Review live camera input, check motion context/i)
+        screen.getByText(/Open the live monitor, review motion context/i)
       ).toBeInTheDocument();
     });
 

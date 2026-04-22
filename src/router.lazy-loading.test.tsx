@@ -85,7 +85,7 @@ describe("Router Lazy Loading", () => {
     await waitFor(
       () => {
         expect(
-          screen.getByText("A calmer interface for driver attention and motion awareness.")
+          screen.getByText("DriveSafe AI keeps the cabin check clear.")
         ).toBeInTheDocument();
       },
       { timeout: 3000 }
@@ -99,14 +99,14 @@ describe("Router Lazy Loading", () => {
     await waitFor(
       () => {
         expect(
-          screen.getByText("A calmer interface for driver attention and motion awareness.")
+          screen.getByText("DriveSafe AI keeps the cabin check clear.")
         ).toBeInTheDocument();
       },
       { timeout: 3000 }
     );
 
     // Verify page content is displayed
-    expect(screen.getByText("Built for practical, low-distraction driver checks")).toBeInTheDocument();
+    expect(screen.getByText("Driver awareness, without dashboard noise")).toBeInTheDocument();
   });
 
   it("should successfully load MonitoringPage after lazy loading", async () => {
@@ -178,7 +178,7 @@ describe("Router Lazy Loading", () => {
     await waitFor(
       () => {
         expect(
-          screen.getByText("A calmer interface for driver attention and motion awareness.")
+          screen.getByText("DriveSafe AI keeps the cabin check clear.")
         ).toBeInTheDocument();
       },
       { timeout: 3000 }
@@ -217,7 +217,7 @@ describe("Router Lazy Loading", () => {
     await waitFor(
       () => {
         expect(
-          screen.getByText("A calmer interface for driver attention and motion awareness.")
+          screen.getByText("DriveSafe AI keeps the cabin check clear.")
         ).toBeInTheDocument();
       },
       { timeout: 3000 }

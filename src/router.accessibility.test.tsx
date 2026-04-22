@@ -93,7 +93,7 @@ describe("Router - Accessibility Tests", () => {
       render(<RouterProvider router={router} />);
 
       // Verify we're on landing page
-      expect(screen.getByText(/A calmer interface for driver attention/i)).toBeInTheDocument();
+      expect(screen.getByText(/DriveSafe AI keeps the cabin check clear/i)).toBeInTheDocument();
 
       // Get navigation links (use getAllByRole since there are desktop and mobile versions)
       const homeLinks = screen.getAllByRole("link", { name: /home/i });
@@ -128,7 +128,7 @@ describe("Router - Accessibility Tests", () => {
       await user.keyboard("{Enter}");
 
       await waitFor(() => {
-        expect(screen.getByText(/A calmer interface for driver attention/i)).toBeInTheDocument();
+        expect(screen.getByText(/DriveSafe AI keeps the cabin check clear/i)).toBeInTheDocument();
       });
     });
 
@@ -313,7 +313,7 @@ describe("Router - Accessibility Tests", () => {
       
       // Should have h1 as main heading
       const h1 = screen.getByRole("heading", { level: 1 });
-      expect(h1).toHaveTextContent(/A calmer interface for driver attention/i);
+      expect(h1).toHaveTextContent(/DriveSafe AI keeps the cabin check clear/i);
 
       // Should have h2 for DriveSafe AI branding
       const h2Elements = screen.getAllByRole("heading", { level: 2 });

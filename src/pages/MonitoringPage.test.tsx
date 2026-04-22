@@ -46,8 +46,8 @@ describe("MonitoringPage", () => {
       render(<MonitoringPage />);
       
       // Verify marketing content is NOT present
-      expect(screen.queryByText("Built for practical, low-distraction driver checks")).not.toBeInTheDocument();
-      expect(screen.queryByText("A calmer interface for driver attention and motion awareness")).not.toBeInTheDocument();
+      expect(screen.queryByText("Driver awareness, without dashboard noise")).not.toBeInTheDocument();
+      expect(screen.queryByText("DriveSafe AI keeps the cabin check clear and motion awareness")).not.toBeInTheDocument();
     });
 
     it("should display monitoring interface without landing page content", () => {

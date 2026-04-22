@@ -120,7 +120,7 @@ describe("Navigation Integration Tests", () => {
 
       // Verify we're on the landing page
       expect(
-        screen.getByText("A calmer interface for driver attention and motion awareness.")
+        screen.getByText("DriveSafe AI keeps the cabin check clear.")
       ).toBeInTheDocument();
 
       // Click the monitoring link
@@ -134,7 +134,7 @@ describe("Navigation Integration Tests", () => {
 
       // Verify landing page content is not displayed
       expect(
-        screen.queryByText("Sign in with email or continue anonymously to test the monitor")
+        screen.queryByText("Sign in with email or continue anonymously to run a live cabin check")
       ).not.toBeInTheDocument();
     });
 
@@ -268,7 +268,7 @@ describe("Navigation Integration Tests", () => {
       // Verify we're back on the landing page
       await waitFor(() => {
         expect(
-          screen.getByText("A calmer interface for driver attention and motion awareness.")
+          screen.getByText("DriveSafe AI keeps the cabin check clear.")
         ).toBeInTheDocument();
       });
     });
@@ -314,7 +314,7 @@ describe("Navigation Integration Tests", () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText("A calmer interface for driver attention and motion awareness.")
+          screen.getByText("DriveSafe AI keeps the cabin check clear.")
         ).toBeInTheDocument();
       });
 
@@ -386,7 +386,7 @@ describe("Navigation Integration Tests", () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText("A calmer interface for driver attention and motion awareness.")
+          screen.getByText("DriveSafe AI keeps the cabin check clear.")
         ).toBeInTheDocument();
       });
     });
@@ -417,7 +417,7 @@ describe("Navigation Integration Tests", () => {
       render(<RouterProvider router={router} />);
 
       expect(
-        screen.getByText("A calmer interface for driver attention and motion awareness.")
+        screen.getByText("DriveSafe AI keeps the cabin check clear.")
       ).toBeInTheDocument();
       expect(screen.getByTestId("sign-in-form")).toBeInTheDocument();
     });
@@ -503,7 +503,7 @@ describe("Navigation Integration Tests", () => {
 
       // Should display landing page content
       expect(
-        screen.getByText("A calmer interface for driver attention and motion awareness.")
+        screen.getByText("DriveSafe AI keeps the cabin check clear.")
       ).toBeInTheDocument();
     });
   });

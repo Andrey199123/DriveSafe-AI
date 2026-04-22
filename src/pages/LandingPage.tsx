@@ -15,56 +15,78 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="space-y-10">
-      <section className="text-center">
-        <span className="site-badge">Built for practical, low-distraction driver checks</span>
-        <h1 className="mx-auto mt-6 max-w-4xl text-5xl font-black tracking-normal text-[#111827] sm:text-7xl">
-          A calmer interface for driver attention and motion awareness.
-        </h1>
+    <div className="space-y-12">
+      <section className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
+        <div>
+          <span className="site-badge">Driver awareness, without dashboard noise</span>
+          <h1 className="mt-6 max-w-4xl text-5xl font-black leading-[0.95] tracking-normal text-[#111827] sm:text-7xl">
+            DriveSafe AI keeps the cabin check clear.
+          </h1>
+        </div>
         <Authenticated>
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-500 sm:text-xl">
-            Welcome back{loggedInUser?.email ? `, ${loggedInUser.email}` : ""}. Review live camera input, check motion context, and keep shared usage metrics behind settings.
-          </p>
-          <div className="mt-8">
+          <div className="max-w-xl lg:justify-self-end">
+            <p className="text-lg leading-8 text-slate-600 sm:text-xl">
+              Welcome back{loggedInUser?.email ? `, ${loggedInUser.email}` : ""}. Open the live monitor, review motion context, and keep shared API controls behind settings.
+            </p>
+            <div className="mt-8">
             <Link to="/monitor" className="site-primary-button">
               Go to Monitoring
             </Link>
+            </div>
           </div>
         </Authenticated>
         <Unauthenticated>
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-500 sm:text-xl">
-            Sign in with email or continue anonymously to test the monitor. Shared API usage remains protected by a separate password in settings.
+          <p className="max-w-xl text-lg leading-8 text-slate-600 sm:text-xl lg:justify-self-end">
+            Sign in with email or continue anonymously to run a live cabin check. API usage and provider controls stay behind the settings password.
           </p>
         </Unauthenticated>
       </section>
 
       <Unauthenticated>
-        <section className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="space-y-6">
-            <div className="site-panel p-8 sm:p-10">
-              <p className="site-eyebrow">The workspace</p>
-              <h2 className="mt-4 text-3xl font-black tracking-normal text-[#111827] sm:text-4xl">
-                Live camera review, speed context, and a cleaner alert surface.
-              </h2>
-              <p className="mt-4 max-w-2xl text-base leading-7 text-slate-500">
-                The interface now borrows the same editorial feel as the reference site: warm off-white surfaces, darker type, restrained blue accents, rounded pill controls, and wide breathing room.
+        <section className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_400px]">
+          <div className="site-panel p-6 sm:p-8">
+            <div className="grid gap-8 md:grid-cols-[0.9fr_1.1fr] md:items-end">
+              <div>
+                <p className="site-eyebrow">Cabin readiness</p>
+                <h2 className="mt-4 text-3xl font-black leading-tight tracking-normal text-[#111827] sm:text-4xl">
+                  Camera, road speed, and alert state in one scan.
+                </h2>
+              </div>
+              <p className="text-base leading-7 text-slate-600">
+                DriveSafe keeps the operating surface spare: start the camera, watch the current state, and let the app call attention only when the signal changes.
               </p>
-              <div className="mt-8 grid gap-4 sm:grid-cols-3">
-                <div className="site-stat-card">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Camera</p>
-                  <p className="mt-3 text-2xl font-black tracking-normal text-[#111827]">Live</p>
-                  <p className="mt-2 text-sm text-slate-500">Continuous monitoring with manual review controls.</p>
-                </div>
-                <div className="site-stat-card">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Motion</p>
-                  <p className="mt-3 text-2xl font-black tracking-normal text-[#111827]">Smoothed</p>
-                  <p className="mt-2 text-sm text-slate-500">GPS drift filtering and more conservative overspeed alerts.</p>
-                </div>
-                <div className="site-stat-card">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Access</p>
-                  <p className="mt-3 text-2xl font-black tracking-normal text-[#111827]">Flexible</p>
-                  <p className="mt-2 text-sm text-slate-500">Anonymous sessions stay available, with settings-gated usage data.</p>
-                </div>
+            </div>
+
+            <div className="mt-8 grid gap-px overflow-hidden rounded-lg border border-[#dbeafe] bg-[#dbeafe] sm:grid-cols-3">
+              <div className="bg-white p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Camera</p>
+                <p className="mt-3 text-2xl font-black tracking-normal text-[#111827]">Live</p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">Manual start keeps review under driver control.</p>
+              </div>
+              <div className="bg-white p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Motion</p>
+                <p className="mt-3 text-2xl font-black tracking-normal text-[#111827]">Smoothed</p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">GPS drift filtering reduces noisy overspeed calls.</p>
+              </div>
+              <div className="bg-white p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Access</p>
+                <p className="mt-3 text-2xl font-black tracking-normal text-[#111827]">Flexible</p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">Anonymous sessions stay separate from protected usage controls.</p>
+              </div>
+            </div>
+
+            <div className="mt-8 grid gap-4 border-t border-[#e2e8f0] pt-6 sm:grid-cols-3">
+              <div>
+                <p className="text-sm font-semibold text-[#111827]">01. Capture</p>
+                <p className="mt-1 text-sm leading-6 text-slate-500">Use live camera or upload a reference frame.</p>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-[#111827]">02. Assess</p>
+                <p className="mt-1 text-sm leading-6 text-slate-500">Route analysis through the selected vision provider.</p>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-[#111827]">03. Alert</p>
+                <p className="mt-1 text-sm leading-6 text-slate-500">Escalate only when safety signals persist.</p>
               </div>
             </div>
           </div>

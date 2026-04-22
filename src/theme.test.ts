@@ -28,9 +28,9 @@ describe("Theme System - Blue Color Theme", () => {
       expect(cssContent).toContain("--app-bg: #f8fafc");
     });
 
-    it("should use blue color in radial gradient background", () => {
-      // Verify the gradient uses blue (37, 99, 235 is #2563eb in RGB)
-      expect(cssContent).toMatch(/rgba\(37,\s*99,\s*235,\s*0\.06\)/);
+    it("should use the blue-gray app background without decorative gradients", () => {
+      expect(cssContent).toMatch(/background:\s*var\(--app-bg\);/);
+      expect(cssContent).not.toMatch(/radial-gradient/);
     });
 
     it("should not contain any green color values in custom properties", () => {
