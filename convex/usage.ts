@@ -45,8 +45,6 @@ export const getOrCreateGuestUser = internalMutation({
     }
   },
 });
-  },
-});
 
 export const recordUsageEvent = internalMutation({
   args: {
@@ -81,12 +79,12 @@ export const recordUsageEvent = internalMutation({
 
     console.log("[recordUsageEvent] Event inserted, updating summary");
 
-    // Find or create summary - use null for guest users
-    const summaryUserId = args.userId ?? null;
+    // Find or create summary - use undefined for guest users
+    const summaryUserId = args.userId;
     const existingSummary = await ctx.db
       .query("usageSummaries")
       .filter((q) => 
-        summaryUserId === null 
+        summaryUserId === undefined
           ? q.eq(q.field("userId"), undefined)
           : q.eq(q.field("userId"), summaryUserId)
       )
