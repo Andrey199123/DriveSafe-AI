@@ -179,19 +179,10 @@ Return ONLY the JSON object.`,
     throw error;
   } finally {
     try {
-      // Get or create guest user if userId is null
-      let trackingUserId = userId;
-      if (!trackingUserId) {
-        console.log("[Groq] Creating/getting guest user for tracking");
-        trackingUserId = await ctx.runMutation(internal.usage.getOrCreateGuestUser, {});
-        console.log("[Groq] Guest user ID:", trackingUserId);
-      } else {
-        console.log("[Groq] Using authenticated user ID:", trackingUserId);
-      }
-      
-      console.log("[Groq] Recording usage event - status:", status, "tokens:", totalTokens);
+      // Use userId directly (null for guests)
+      console.log("[Groq] Recording usage event - userId:", userId, "status:", status, "tokens:", totalTokens);
       await ctx.runMutation(internal.usage.recordUsageEvent, {
-        userId: trackingUserId,
+        userId: userId ?? undefined,
         provider: "groq",
         model: GROQ_MODEL,
         requestSource: source,
@@ -385,19 +376,10 @@ Return ONLY the JSON object.`,
     throw error;
   } finally {
     try {
-      // Get or create guest user if userId is null
-      let trackingUserId = userId;
-      if (!trackingUserId) {
-        console.log("[ChatGPT] Creating/getting guest user for tracking");
-        trackingUserId = await ctx.runMutation(internal.usage.getOrCreateGuestUser, {});
-        console.log("[ChatGPT] Guest user ID:", trackingUserId);
-      } else {
-        console.log("[ChatGPT] Using authenticated user ID:", trackingUserId);
-      }
-      
-      console.log("[ChatGPT] Recording usage event - status:", status, "tokens:", totalTokens);
+      // Use userId directly (null for guests)
+      console.log("[ChatGPT] Recording usage event - userId:", userId, "status:", status, "tokens:", totalTokens);
       await ctx.runMutation(internal.usage.recordUsageEvent, {
-        userId: trackingUserId,
+        userId: userId ?? undefined,
         provider: "chatgpt",
         model: CHATGPT_MODEL,
         requestSource: source,

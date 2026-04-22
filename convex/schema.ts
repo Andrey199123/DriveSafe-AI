@@ -15,7 +15,7 @@ const applicationTables = {
     timestamp: v.number(),
   }).index("by_user", ["userId"]),
   usageEvents: defineTable({
-    userId: v.id("users"),
+    userId: v.optional(v.id("users")),
     provider: v.union(v.literal("groq"), v.literal("gemini"), v.literal("chatgpt")),
     model: v.string(),
     requestSource: v.union(
@@ -31,9 +31,11 @@ const applicationTables = {
     totalTokens: v.optional(v.number()),
     errorMessage: v.optional(v.string()),
     timestamp: v.number(),
-  }).index("by_user_timestamp", ["userId", "timestamp"]),
+  })
+    .index("by_user_timestamp", ["userId", "timestamp"])
+    .index("by_timestamp", ["timestamp"]),
   usageSummaries: defineTable({
-    userId: v.id("users"),
+    userId: v.optional(v.id("users")),
     requestCount: v.number(),
     successCount: v.number(),
     errorCount: v.number(),
@@ -44,7 +46,9 @@ const applicationTables = {
     completionTokens: v.number(),
     totalTokens: v.number(),
     lastRequestAt: v.number(),
-  }).index("by_user", ["userId"]),
+  })
+    .index("by_user", ["userId"])
+    .index("by_last_request", ["lastRequestAt"]),
   userSettings: defineTable({
     userId: v.id("users"),
     apiProvider: v.union(v.literal("groq"), v.literal("chatgpt")),

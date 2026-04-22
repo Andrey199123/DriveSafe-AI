@@ -50,7 +50,7 @@ export const getOrCreateGuestUser = internalMutation({
 
 export const recordUsageEvent = internalMutation({
   args: {
-    userId: v.id("users"),
+    userId: v.optional(v.id("users")),
     provider: providerValidator,
     model: v.string(),
     requestSource: requestSourceValidator,
@@ -62,6 +62,8 @@ export const recordUsageEvent = internalMutation({
     errorMessage: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    console.log("[recordUsageEvent] Starting - userId:", args.userId, "provider:", args.provider);
+    
     const timestamp = Date.now();
     await ctx.db.insert("usageEvents", {
       userId: args.userId,
@@ -77,10 +79,18 @@ export const recordUsageEvent = internalMutation({
       timestamp,
     });
 
+    console.log("[recordUsageEvent] Event inserted, updating summary");
+
+    // Find or create summary - use null for guest users
+    const summaryUserId = args.userId ?? null;
     const existingSummary = await ctx.db
       .query("usageSummaries")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
-      .unique();
+      .filter((q) => 
+        summaryUserId === null 
+          ? q.eq(q.field("userId"), undefined)
+          : q.eq(q.field("userId"), summaryUserId)
+      )
+      .first();
 
     const summaryPatch = {
       requestCount: (existingSummary?.requestCount ?? 0) + 1,
@@ -102,13 +112,17 @@ export const recordUsageEvent = internalMutation({
     };
 
     if (existingSummary) {
+      console.log("[recordUsageEvent] Updating existing summary");
       await ctx.db.patch(existingSummary._id, summaryPatch);
     } else {
+      console.log("[recordUsageEvent] Creating new summary");
       await ctx.db.insert("usageSummaries", {
-        userId: args.userId,
+        userId: summaryUserId,
         ...summaryPatch,
       });
     }
+    
+    console.log("[recordUsageEvent] Complete");
   },
 });
 
