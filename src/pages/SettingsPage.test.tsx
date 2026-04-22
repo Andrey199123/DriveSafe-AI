@@ -59,8 +59,8 @@ describe("SettingsPage", () => {
         </BrowserRouter>
       );
 
-      expect(screen.getByText("USAGE DASHBOARD")).toBeInTheDocument();
-      expect(screen.getByText("Shared usage dashboard")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 1, name: /settings/i })).toBeInTheDocument();
+      expect(screen.getByText("Usage ledger")).toBeInTheDocument();
     });
 
     it("should render password form when dashboard is locked", () => {

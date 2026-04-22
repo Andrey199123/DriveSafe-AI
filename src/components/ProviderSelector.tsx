@@ -9,14 +9,16 @@ interface ProviderSelectorProps {
 
 type ApiProvider = "groq" | "chatgpt";
 
-const providerCopy: Record<ApiProvider, { name: string; detail: string }> = {
+const providerCopy: Record<ApiProvider, { name: string; detail: string; stance: string }> = {
   groq: {
     name: "Groq API",
-    detail: "Fast inference with Llama Vision",
+    detail: "Llama Vision",
+    stance: "Latency-first route for quick cabin checks",
   },
   chatgpt: {
     name: "ChatGPT API",
-    detail: "GPT-4o vision analysis through OpenAI",
+    detail: "GPT-4o Vision",
+    stance: "Detail-first route for richer scene interpretation",
   },
 };
 
@@ -56,27 +58,32 @@ export function ProviderSelector({ password }: ProviderSelectorProps) {
 
   return (
     <div data-testid="provider-selector" className="settings-card">
-      <div className="mb-6">
-        <div className="text-sm font-medium uppercase tracking-wider text-slate-400">
-          API Provider
-        </div>
-        <div className="mt-2 text-2xl font-black text-[#111827]">
-          Select AI analysis provider
+      <div className="grid gap-5 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] sm:items-start">
+        <div>
+          <div className="text-sm font-semibold uppercase tracking-[0.16em] text-[#2563eb]">
+            Analysis routing
+          </div>
+          <div className="mt-2 text-2xl font-black text-[#111827]">
+            Choose the vision engine
+          </div>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            This setting changes the provider used by the next frame analysis.
+          </p>
         </div>
       </div>
 
-      <fieldset className="space-y-4" disabled={isUpdating}>
+      <fieldset className="grid gap-3 sm:grid-cols-2" disabled={isUpdating}>
         <legend className="sr-only">AI analysis provider</legend>
         {(Object.keys(providerCopy) as ApiProvider[]).map((provider) => {
           const isActive = currentProvider === provider;
           return (
             <label
               key={provider}
-              className={`flex cursor-pointer items-center gap-4 rounded-lg border-2 bg-white p-5 transition-all ${
+              className={`relative cursor-pointer rounded-lg border bg-white p-4 transition-colors ${
                 isUpdating
                   ? "cursor-wait opacity-70"
-                  : "hover:border-[#111827] hover:shadow-sm"
-              } ${isActive ? "border-[#111827] shadow-sm" : "border-slate-200"}`}
+                  : "hover:border-[#2563eb] hover:bg-[#eff6ff]"
+              } ${isActive ? "border-[#2563eb] bg-[#eff6ff]" : "border-[#dbeafe]"}`}
             >
               <input
                 type="radio"
@@ -84,28 +91,33 @@ export function ProviderSelector({ password }: ProviderSelectorProps) {
                 value={provider}
                 checked={isActive}
                 onChange={() => handleProviderChange(provider)}
-                className="h-5 w-5 border-2 border-slate-300 text-[#111827] focus:ring-2 focus:ring-[#111827] focus:ring-offset-2"
+                className="sr-only"
               />
-              <span className="flex-1">
-                <span className="block text-lg font-black text-[#111827]">
-                  {providerCopy[provider].name}
+              <span className="flex items-start justify-between gap-3">
+                <span>
+                  <span className="block text-base font-black text-[#111827]">
+                    {providerCopy[provider].name}
+                  </span>
+                  <span className="mt-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                    {providerCopy[provider].detail}
+                  </span>
                 </span>
-                <span className="mt-1 block text-sm text-slate-600">
-                  {providerCopy[provider].detail}
-                </span>
+                {isActive && (
+                  <span className="rounded-md bg-[#2563eb] px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-white">
+                    Active route
+                  </span>
+                )}
               </span>
-              {isActive && (
-                <span className="rounded-md bg-[#111827] px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white">
-                  Active
-                </span>
-              )}
+              <span className="mt-4 block text-sm leading-6 text-slate-600">
+                {providerCopy[provider].stance}
+              </span>
             </label>
           );
         })}
       </fieldset>
 
       {isUpdating && (
-        <div className="mt-4 text-sm font-medium text-[#111827]">Saving provider...</div>
+        <div className="mt-4 text-sm font-medium text-[#111827]">Saving provider route...</div>
       )}
     </div>
   );

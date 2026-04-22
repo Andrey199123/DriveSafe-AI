@@ -217,7 +217,7 @@ describe("Navigation Integration Tests", () => {
 
       // Verify we're now on the settings page
       await waitFor(() => {
-        expect(screen.getByText("Shared usage dashboard")).toBeInTheDocument();
+        expect(screen.getByRole("heading", { level: 1, name: /settings/i })).toBeInTheDocument();
       });
 
       // Verify monitoring page content is not displayed
@@ -372,7 +372,7 @@ describe("Navigation Integration Tests", () => {
       await user.click(settingsLink);
 
       await waitFor(() => {
-        expect(screen.getByText("Shared usage dashboard")).toBeInTheDocument();
+        expect(screen.getByRole("heading", { level: 1, name: /settings/i })).toBeInTheDocument();
       });
 
       // Go back twice: Settings -> Monitor -> Landing
@@ -471,7 +471,7 @@ describe("Navigation Integration Tests", () => {
 
       render(<RouterProvider router={router} />);
 
-      expect(screen.getByText("Shared usage dashboard")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 1, name: /settings/i })).toBeInTheDocument();
     });
 
     it("should redirect to landing page when navigating to invalid URL", () => {
@@ -590,7 +590,7 @@ describe("Navigation Integration Tests", () => {
       await user.click(settingsLink);
 
       await waitFor(() => {
-        expect(screen.getByText("Shared usage dashboard")).toBeInTheDocument();
+        expect(screen.getByRole("heading", { level: 1, name: /settings/i })).toBeInTheDocument();
       });
 
       // Verify sign-out button is still present (auth state preserved)
@@ -691,7 +691,7 @@ describe("Navigation Integration Tests", () => {
       await user.click(settingsLink);
 
       await waitFor(() => {
-        expect(screen.getByText("Shared usage dashboard")).toBeInTheDocument();
+        expect(screen.getByRole("heading", { level: 1, name: /settings/i })).toBeInTheDocument();
       });
       expect(screen.getByTestId("sign-out-button")).toBeInTheDocument();
 

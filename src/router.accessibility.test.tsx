@@ -119,7 +119,7 @@ describe("Router - Accessibility Tests", () => {
       await user.keyboard("{Enter}");
 
       await waitFor(() => {
-        expect(screen.getByText(/Shared usage dashboard/i)).toBeInTheDocument();
+        expect(screen.getByRole("heading", { level: 1, name: /settings/i })).toBeInTheDocument();
       });
 
       // Navigate back to home using keyboard
@@ -164,7 +164,7 @@ describe("Router - Accessibility Tests", () => {
       render(<RouterProvider router={router} />);
 
       // Verify we're on settings page
-      expect(screen.getByText(/Shared usage dashboard/i)).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 1, name: /settings/i })).toBeInTheDocument();
 
       // Verify navigation links are keyboard accessible
       const homeLinks = screen.getAllByRole("link", { name: /home/i });
@@ -240,7 +240,7 @@ describe("Router - Accessibility Tests", () => {
       await user.click(settingsLinks[0]);
 
       await waitFor(() => {
-        expect(screen.getByText(/Shared usage dashboard/i)).toBeInTheDocument();
+        expect(screen.getByRole("heading", { level: 1, name: /settings/i })).toBeInTheDocument();
       });
     });
 
@@ -346,14 +346,9 @@ describe("Router - Accessibility Tests", () => {
       // Get all headings
       const headings = screen.getAllByRole("heading");
       
-      // Should have h2 for main page heading (h1 is reserved for page title)
-      const h2 = screen.getByRole("heading", { level: 2, name: /Shared usage dashboard/i });
-      expect(h2).toBeInTheDocument();
-
-      // Verify no h1 on settings page (follows pattern where h1 is in header)
-      const h1Elements = headings.filter(h => h.tagName === "H1");
-      // Only h1 should be in header, not in page content
-      expect(h1Elements.length).toBeLessThanOrEqual(1);
+      // Should have h1 for page heading
+      const h1 = screen.getByRole("heading", { level: 1, name: /settings/i });
+      expect(h1).toBeInTheDocument();
     });
 
     it("maintains consistent heading hierarchy across navigation", async () => {
@@ -383,7 +378,7 @@ describe("Router - Accessibility Tests", () => {
       await user.click(settingsLinks[0]);
 
       await waitFor(() => {
-        expect(screen.getByText(/Shared usage dashboard/i)).toBeInTheDocument();
+        expect(screen.getByRole("heading", { level: 1, name: /settings/i })).toBeInTheDocument();
       });
 
       // Settings page should have proper heading structure

@@ -41,9 +41,9 @@ describe("ProviderSelector", () => {
     render(<ProviderSelector password="test-password" />);
 
     expect(screen.getByText("Groq API")).toBeInTheDocument();
-    expect(screen.getByText("Fast inference with Llama Vision")).toBeInTheDocument();
+    expect(screen.getByText("Llama Vision")).toBeInTheDocument();
     expect(screen.getByText("ChatGPT API")).toBeInTheDocument();
-    expect(screen.getByText("GPT-4o vision analysis through OpenAI")).toBeInTheDocument();
+    expect(screen.getByText("GPT-4o Vision")).toBeInTheDocument();
   });
 
   it("shows the Active badge on the current provider", () => {
@@ -53,8 +53,8 @@ describe("ProviderSelector", () => {
 
     const chatgptOption = screen.getByRole("radio", { name: /chatgpt api/i });
     expect(chatgptOption).toBeChecked();
-    expect(chatgptOption.closest("label")).toHaveTextContent("Active");
-    expect(screen.getByText("Active")).toHaveClass("bg-[#111827]", "text-white");
+    expect(chatgptOption.closest("label")).toHaveTextContent("Active route");
+    expect(screen.getByText("Active route")).toHaveClass("bg-[#2563eb]", "text-white");
   });
 
   it("defaults to Groq when no settings exist yet", () => {
@@ -137,7 +137,7 @@ describe("ProviderSelector", () => {
     await waitFor(() => {
       expect(screen.getByRole("radio", { name: /groq api/i })).toBeDisabled();
       expect(screen.getByRole("radio", { name: /chatgpt api/i })).toBeDisabled();
-      expect(screen.getByText("Saving provider...")).toBeInTheDocument();
+      expect(screen.getByText("Saving provider route...")).toBeInTheDocument();
     });
 
     resolveUpdate({ success: true });
@@ -148,8 +148,8 @@ describe("ProviderSelector", () => {
 
     expect(screen.getByTestId("provider-selector")).toHaveClass("settings-card");
     for (const radio of screen.getAllByRole("radio")) {
-      expect(radio).toHaveClass("text-[#111827]", "focus:ring-[#111827]");
-      expect(radio.closest("label")).toHaveClass("hover:border-[#111827]");
+      expect(radio).toHaveClass("sr-only");
+      expect(radio.closest("label")).toHaveClass("hover:border-[#2563eb]");
     }
   });
 });
