@@ -2,9 +2,9 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import RootLayout from "./layouts/RootLayout";
 import RouteErrorBoundary from "./components/RouteErrorBoundary";
+import LandingPage from "./pages/LandingPage";
 
 // Lazy load page components for code splitting
-const LandingPage = lazy(() => import("./pages/LandingPage"));
 const MonitoringPage = lazy(() => import("./pages/MonitoringPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 
@@ -25,11 +25,7 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <LandingPage />
-          </Suspense>
-        ),
+        element: <LandingPage />,
       },
       {
         path: "monitor",
