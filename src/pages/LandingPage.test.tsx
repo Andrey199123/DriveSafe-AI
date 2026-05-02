@@ -193,7 +193,7 @@ describe("LandingPage", () => {
   });
 
   describe("Loading State", () => {
-    it("should display loading spinner when user data is undefined", () => {
+    it("should render marketing content while user data is undefined", () => {
       mockUserData = undefined;
 
       render(
@@ -202,9 +202,9 @@ describe("LandingPage", () => {
         </BrowserRouter>
       );
 
-      // Check for loading spinner (it has specific animation classes)
-      const spinner = document.querySelector(".animate-spin");
-      expect(spinner).toBeInTheDocument();
+      expect(screen.getByText("Driver awareness, without dashboard noise")).toBeInTheDocument();
+      expect(screen.getByText("DriveSafe AI keeps the cabin check clear.")).toBeInTheDocument();
+      expect(screen.queryByTestId("sign-in-form")).not.toBeInTheDocument();
     });
   });
 });

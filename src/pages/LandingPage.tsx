@@ -6,14 +6,6 @@ import { Link } from "react-router-dom";
 export default function LandingPage() {
   const loggedInUser = useQuery(api.auth.loggedInUser);
 
-  if (loggedInUser === undefined) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#bfdbfe] border-t-[#2563eb]"></div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-12">
       <section className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
