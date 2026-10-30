@@ -11,6 +11,10 @@ interface DetectionResult {
   confidence: number;
   indicators: string[];
   state: "drunk" | "sleepy" | "distracted" | "normal";
+  observationOnly?: boolean;
+  eyesClosed?: boolean;
+  lookingAway?: boolean;
+  faceVisible?: boolean;
 }
 
 type AnalysisSource = "live_camera" | "uploaded_image" | "uploaded_video";
@@ -88,6 +92,9 @@ export function DrunkDetector() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const analyzingRef = useRef(false);
+  const analyzeCurrentFrameRef = useRef<() => Promise<void>>(async () => {});
+  const lastErrorToastRef = useRef<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastAlertTimeRef = useRef<number>(0);
   const lastSpeedAlertTimeRef = useRef<number>(0);
@@ -298,27 +305,48 @@ export function DrunkDetector() {
   }, [currentSpeedMph, speedLimitMph]);
 
 
-  const getBase64FromCanvas = (): string => {
+  const captureSourceToJpeg = (
+    source: CanvasImageSource,
+    sourceWidth: number,
+    sourceHeight: number,
+  ): string => {
     const canvas = canvasRef.current;
-    const video = videoRef.current;
-    if (!canvas || !video) return "";
+    if (!canvas || !sourceWidth || !sourceHeight) return "";
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return "";
 
-    // Use consistent dimensions for better analysis
-    const width = Math.min(video.videoWidth, 640);
-    const height = Math.min(video.videoHeight, 480);
-    
+    const scale = Math.min(640 / sourceWidth, 480 / sourceHeight, 1);
+    const width = Math.max(1, Math.round(sourceWidth * scale));
+    const height = Math.max(1, Math.round(sourceHeight * scale));
+
     canvas.width = width;
     canvas.height = height;
-    
-    // Improve image quality
     ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(video, 0, 0, width, height);
-    
-    return canvas.toDataURL("image/jpeg", 0.9);
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(source, 0, 0, width, height);
+
+    return canvas.toDataURL("image/jpeg", 0.85);
+  };
+
+  const getBase64FromCanvas = (): string => {
+    const video = videoRef.current;
+    if (!video) return "";
+    return captureSourceToJpeg(video, video.videoWidth, video.videoHeight);
+  };
+
+  const isObservationOnly = (result: DetectionResult) =>
+    result.observationOnly === true ||
+    result.indicators.some((item) => item.startsWith("Visual observations only."));
+
+  const readObservations = (result: DetectionResult) => {
+    const eyesClosed =
+      result.eyesClosed ?? result.indicators.some((item) => item.includes("Eyes appear closed"));
+    const lookingAway =
+      result.lookingAway ?? result.indicators.some((item) => item.includes("directed away"));
+    const faceVisible =
+      result.faceVisible ?? !result.indicators.some((item) => item.includes("No clear face visible"));
+    return { eyesClosed, lookingAway, faceVisible };
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -387,10 +415,17 @@ export function DrunkDetector() {
       const result = await analyzeImageWithVision(base64Image, "uploaded_video");
       setCurrentResult(result);
       
-      if ((result.isDrunk || result.isSleepy || result.isDistracted) && result.confidence >= 30) {
+      if (isObservationOnly(result)) {
+        const observations = readObservations(result);
+        toast.success(
+          observations.faceVisible
+            ? `Video observation: ${observations.eyesClosed ? "eyes appear closed" : "eyes appear open"}; ${observations.lookingAway ? "looking away" : "looking toward camera"}.`
+            : "Video observation: no clear face visible.",
+        );
+      } else if ((result.isDrunk || result.isSleepy || result.isDistracted) && result.confidence >= 30) {
         toast.error(`${result.state.toUpperCase()} detected in video.`);
       } else {
-        toast.success('Video analysis complete - no impairment detected');
+        toast.success("Video analysis complete - no impairment detected");
       }
     } catch (error) {
       console.error("Video analysis failed:", error);
@@ -412,26 +447,22 @@ export function DrunkDetector() {
         img.src = uploadedImage;
       });
 
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas context unavailable');
-
-      const width = Math.min(img.width, 640);
-      const height = Math.min(img.height, 480);
-      canvas.width = width;
-      canvas.height = height;
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(img, 0, 0, width, height);
-
-      const base64Image = canvas.toDataURL('image/jpeg', 0.9);
+      const base64Image = captureSourceToJpeg(img, img.width, img.height);
+      if (!base64Image) throw new Error("Canvas context unavailable");
       const result = await analyzeImageWithVision(base64Image, "uploaded_image");
       setCurrentResult(result);
 
-      if ((result.isDrunk || result.isSleepy || result.isDistracted) && result.confidence >= 30) {
+      if (isObservationOnly(result)) {
+        const observations = readObservations(result);
+        toast.success(
+          observations.faceVisible
+            ? `Image observation: ${observations.eyesClosed ? "eyes appear closed" : "eyes appear open"}; ${observations.lookingAway ? "looking away" : "looking toward camera"}.`
+            : "Image observation: no clear face visible.",
+        );
+      } else if ((result.isDrunk || result.isSleepy || result.isDistracted) && result.confidence >= 30) {
         toast.error(`${result.state.toUpperCase()} detected in image.`);
       } else {
-        toast.success('Image analysis complete - no impairment detected');
+        toast.success("Image analysis complete - no impairment detected");
       }
     } catch (error) {
       console.error('Image analysis failed:', error);
@@ -465,50 +496,58 @@ export function DrunkDetector() {
   };
 
   const analyzeCurrentFrame = async () => {
-    if (isAnalyzing || !videoRef.current?.videoWidth) return;
+    if (analyzingRef.current || !videoRef.current?.videoWidth) return;
 
+    analyzingRef.current = true;
     setIsAnalyzing(true);
     try {
-      // Add small random delay to avoid pattern detection
-      await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 500));
-      
       const base64Image = getBase64FromCanvas();
       if (!base64Image) {
         throw new Error("Failed to capture frame");
       }
 
-      // Try analysis with retry logic
       let result: DetectionResult | null = null;
-      let attempts = 0;
-      const maxAttempts = 1; // Reduce to single attempt to avoid repeated refusals
-
-      while (!result && attempts < maxAttempts) {
-        try {
-          attempts++;
-          console.log(`[Frontend] Calling analyzeFrame attempt ${attempts}`);
-          result = await analyzeImageWithVision(base64Image, "live_camera");
-          console.log(`[Frontend] analyzeFrame succeeded:`, result);
-          break;
-        } catch (error) {
-          console.error(`[Frontend] Analysis attempt ${attempts} failed:`, error);
-          console.error(`[Frontend] Error details:`, (error as Error).message, (error as Error).stack);
-          if (attempts === maxAttempts) {
-            // On final failure, keep previous result if it exists
-            console.error("[Frontend] Analysis failed after all attempts, keeping previous result");
-            toast.error("Analysis failed. Please check your connection.");
-            return;
-          }
-          // Wait 5 seconds before retry
-          await new Promise(resolve => setTimeout(resolve, 5000));
+      try {
+        result = await analyzeImageWithVision(base64Image, "live_camera");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Analysis failed.";
+        if (Date.now() - lastErrorToastRef.current > 15_000) {
+          lastErrorToastRef.current = Date.now();
+          toast.error(message);
         }
+        return;
       }
 
       if (result) {
         setCurrentResult(result);
-        console.log("Analysis result:", result);
 
-        // Check if any impairment detected (confidence threshold: 30%)
-        if ((result.isDrunk || result.isSleepy || result.isDistracted) && result.confidence >= 30) {
+        if (isObservationOnly(result)) {
+          const now = Date.now();
+          const observations = readObservations(result);
+          if (!observations.faceVisible) {
+            return;
+          }
+          if (observations.eyesClosed && now - lastAlertTimeRef.current > DISTRACTION_COOLDOWN_MS) {
+            lastAlertTimeRef.current = now;
+            vibrateDevice();
+            playAlertSound();
+            toast.error("Eyes appear closed in this frame.");
+            speakAlert("Eyes appear closed. Please keep your attention on the road.", "impairment");
+          } else if (observations.lookingAway && now - lastAlertTimeRef.current > DISTRACTION_COOLDOWN_MS) {
+            lastAlertTimeRef.current = now;
+            distractionCountRef.current += 1;
+            if (distractionCountRef.current < DISTRACTION_THRESHOLD) {
+              vibrateDevice();
+              playSubtleAlert();
+              toast.warning(`Looking away (${distractionCountRef.current}/${DISTRACTION_THRESHOLD})`);
+            } else {
+              vibrateDevice();
+              playAlertSound();
+              toast.error("Looking away from the camera in multiple frames.");
+              speakAlert("Face appears directed away from the camera. Please keep your attention on the road.", "impairment");
+            }
+          }
+        } else if ((result.isDrunk || result.isSleepy || result.isDistracted) && result.confidence >= 30) {
           const now = Date.now();
           
           // Handle distraction with graduated response
@@ -566,11 +605,12 @@ export function DrunkDetector() {
       }
     } catch (error) {
       console.error("Analysis failed:", error);
-      // Don't show toast for every failure to avoid spam
     } finally {
+      analyzingRef.current = false;
       setIsAnalyzing(false);
     }
   };
+  analyzeCurrentFrameRef.current = analyzeCurrentFrame;
 
   // Play an audible alert when impairment is detected
   const playAlertSound = () => {
@@ -716,12 +756,11 @@ export function DrunkDetector() {
       
       // Wait 3 seconds for camera to stabilize before first analysis
       setTimeout(() => {
-        analyzeCurrentFrame();
+        void analyzeCurrentFrameRef.current();
       }, 3000);
-      
-      // Analyze every 10 seconds (adjust if rate limits occur)
+
       intervalRef.current = setInterval(() => {
-        analyzeCurrentFrame();
+        void analyzeCurrentFrameRef.current();
       }, 10000);
     } catch (error) {
       setCameraError("Failed to access camera. Please grant camera permissions.");
@@ -744,15 +783,23 @@ export function DrunkDetector() {
 
     setIsMonitoring(false);
     setCurrentResult(null);
+    analyzingRef.current = false;
     
     // Reset distraction counter when stopping
     distractionCountRef.current = 0;
   };
 
-  const observationOnly = currentResult?.indicators.some((item) => item.startsWith("Visual observations only.")) ?? false;
+  const observationOnly = currentResult ? isObservationOnly(currentResult) : false;
+  const observations = currentResult ? readObservations(currentResult) : null;
 
   const getAlertStyle = () => {
     if (!currentResult) return "";
+    if (observationOnly) {
+      if (!observations?.faceVisible) return "border-slate-400";
+      if (observations.eyesClosed) return "border-amber-500";
+      if (observations.lookingAway) return "border-yellow-500";
+      return "border-[#2563eb]";
+    }
     
     if (currentResult.isDrunk && currentResult.confidence >= 30) {
       return "border-red-600";
@@ -766,7 +813,12 @@ export function DrunkDetector() {
 
   const getStateText = () => {
     if (!currentResult) return "";
-    if (observationOnly) return "Visual observations only · fitness to drive not assessed";
+    if (observationOnly) {
+      if (!observations?.faceVisible) return "No clear face visible";
+      if (observations.eyesClosed) return "Eyes appear closed";
+      if (observations.lookingAway) return "Looking away";
+      return "Face visible · eyes open";
+    }
     
     if (currentResult.isDrunk && currentResult.confidence >= 30) {
       return "Possible impairment";
@@ -780,6 +832,12 @@ export function DrunkDetector() {
 
   const getStateColor = () => {
     if (!currentResult) return "text-[#2563eb]";
+    if (observationOnly) {
+      if (!observations?.faceVisible) return "text-slate-500";
+      if (observations.eyesClosed) return "text-amber-600";
+      if (observations.lookingAway) return "text-yellow-600";
+      return "text-[#2563eb]";
+    }
     
     if (currentResult.isDrunk && currentResult.confidence >= 30) {
       return "text-red-600";
@@ -818,26 +876,55 @@ export function DrunkDetector() {
       note: isOverSpeed ? "Above road limit" : "Within road limit",
     },
   ];
-  const resultCards = [
-    {
-      label: "Alcohol cues",
-      value: observationOnly ? "Not assessed" : currentResult?.isDrunk ? "Detected" : "Clear",
-      active: currentResult?.isDrunk ?? false,
-      activeClass: "text-red-600",
-    },
-    {
-      label: "Drowsiness",
-      value: observationOnly ? "Not assessed" : currentResult?.isSleepy ? "Detected" : "Clear",
-      active: currentResult?.isSleepy ?? false,
-      activeClass: "text-amber-600",
-    },
-    {
-      label: "Attention",
-      value: observationOnly ? "Not assessed" : currentResult?.isDistracted ? "Reduced" : "Focused",
-      active: currentResult?.isDistracted ?? false,
-      activeClass: "text-yellow-600",
-    },
-  ];
+  const resultCards = observationOnly
+    ? [
+        {
+          label: "Face",
+          value: currentResult ? (observations?.faceVisible ? "Visible" : "Not visible") : "--",
+          active: observations?.faceVisible === false,
+          activeClass: "text-slate-600",
+        },
+        {
+          label: "Eyes",
+          value: !observations?.faceVisible
+            ? "Unavailable"
+            : observations.eyesClosed
+              ? "Closed"
+              : "Open",
+          active: observations?.eyesClosed ?? false,
+          activeClass: "text-amber-600",
+        },
+        {
+          label: "Gaze",
+          value: !observations?.faceVisible
+            ? "Unavailable"
+            : observations.lookingAway
+              ? "Away"
+              : "Toward camera",
+          active: observations?.lookingAway ?? false,
+          activeClass: "text-yellow-600",
+        },
+      ]
+    : [
+        {
+          label: "Alcohol cues",
+          value: currentResult?.isDrunk ? "Detected" : "Clear",
+          active: currentResult?.isDrunk ?? false,
+          activeClass: "text-red-600",
+        },
+        {
+          label: "Drowsiness",
+          value: currentResult?.isSleepy ? "Detected" : "Clear",
+          active: currentResult?.isSleepy ?? false,
+          activeClass: "text-amber-600",
+        },
+        {
+          label: "Attention",
+          value: currentResult?.isDistracted ? "Reduced" : "Focused",
+          active: currentResult?.isDistracted ?? false,
+          activeClass: "text-yellow-600",
+        },
+      ];
 
   return (
     <div className="space-y-8">
@@ -921,7 +1008,7 @@ export function DrunkDetector() {
                     <span className={`text-xs font-semibold uppercase tracking-[0.16em] ${statusTextColor}`}>
                       {statusLabel}
                     </span>
-                    {currentResult && (
+                    {currentResult && !observationOnly && (
                       <span className="text-sm font-medium text-slate-500">
                         {currentResult.confidence}% confidence
                       </span>
@@ -1053,7 +1140,9 @@ export function DrunkDetector() {
               </p>
               <p className="mt-3 text-sm leading-6 text-slate-500">
                 {currentResult
-                  ? `The latest review returned ${currentResult.confidence}% confidence.`
+                  ? observationOnly
+                    ? "Visible facial cues only. This is not an assessment of fitness to drive."
+                    : `The latest review returned ${currentResult.confidence}% confidence.`
                   : "Start a live session or upload media to generate the first assessment."}
               </p>
             </div>
@@ -1113,6 +1202,7 @@ export function DrunkDetector() {
           </div>
 
           <div className="mt-6 rounded-lg border border-[#e2e8f0] bg-[#f8fafc] p-6">
+            {!observationOnly && (
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
@@ -1131,6 +1221,7 @@ export function DrunkDetector() {
                 </div>
               </div>
             </div>
+            )}
 
             {currentResult.indicators.length > 0 && (
               <div className="mt-6">
@@ -1152,6 +1243,18 @@ export function DrunkDetector() {
             )}
           </div>
 
+          {observationOnly && observations && (observations.eyesClosed || observations.lookingAway) && (
+            <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-6">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">
+                Visible cue
+              </p>
+              <p className="mt-3 text-sm leading-6 text-amber-800">
+                {observations.eyesClosed
+                  ? "Eyes appear closed in this frame. This is a visual observation, not a drowsiness diagnosis."
+                  : "The face appears directed away from the camera. This is a visual observation, not a distraction diagnosis."}
+              </p>
+            </div>
+          )}
           {((currentResult.isDrunk || currentResult.isSleepy || currentResult.isDistracted) && currentResult.confidence >= 30) && (
             <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-6">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-red-600">

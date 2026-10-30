@@ -68,6 +68,10 @@ An AI-powered Progressive Web Application for real-time driver impairment detect
    ```bash
    npm run dev
    ```
+   For a network-accessible frontend, pass Vite flags through the dev script:
+   ```bash
+   npm run dev -- --host 0.0.0.0 --port 4173
+   ```
    This command launches:
    - Frontend development server at `http://localhost:5173`
    - Convex backend services

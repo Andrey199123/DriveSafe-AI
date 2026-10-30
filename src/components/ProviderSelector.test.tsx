@@ -57,12 +57,12 @@ describe("ProviderSelector", () => {
     expect(screen.getByText("Active")).toHaveClass("bg-[#111827]", "text-white");
   });
 
-  it("defaults to Groq when no settings exist yet", () => {
+  it("defaults to MicroDC when no settings exist yet", () => {
     convexMocks.useQuery.mockReturnValue(null);
 
     render(<ProviderSelector password="test-password" />);
 
-    expect(screen.getByRole("radio", { name: /groq api/i })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /microdc/i })).toBeChecked();
   });
 
   it("clicking Groq calls the mutation with groq when ChatGPT is current", async () => {

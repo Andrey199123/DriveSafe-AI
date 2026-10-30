@@ -43,8 +43,7 @@ export default function SettingsPage() {
   const [usageDashboard, setUsageDashboard] = useState<UsageDashboard | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<UsageProvider | "all">("all");
   const usagePasswordRef = useRef("");
-  
-  // Query current provider settings (not password-protected)
+
   const currentSettings = useQuery(api.settings.getMySettings);
 
   const formatRelativeTime = (timestamp: number | null) => {
@@ -66,7 +65,6 @@ export default function SettingsPage() {
     return "Gemini";
   };
 
-  // Filter usage data by selected provider
   const filteredTotals = usageDashboard
     ? selectedProvider === "all"
       ? usageDashboard.totals
@@ -75,10 +73,10 @@ export default function SettingsPage() {
             selectedProvider === "groq"
               ? usageDashboard.totals.groqRequestCount
               : selectedProvider === "gemini"
-              ? usageDashboard.totals.geminiRequestCount
-              : selectedProvider === "microdc"
-              ? (usageDashboard.totals.microdcRequestCount ?? 0)
-              : usageDashboard.totals.chatgptRequestCount,
+                ? usageDashboard.totals.geminiRequestCount
+                : selectedProvider === "microdc"
+                  ? (usageDashboard.totals.microdcRequestCount ?? 0)
+                  : usageDashboard.totals.chatgptRequestCount,
           successCount: usageDashboard.recentEvents.filter(
             (e) => e.provider === selectedProvider && e.status === "success"
           ).length,
@@ -150,11 +148,10 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-16 py-8">
-      {/* Section 01 - Current Provider */}
       <section className="settings-section">
         <div className="settings-section-number">01</div>
         <div className="settings-section-label">CURRENT PROVIDER</div>
-        
+
         <div className="mt-8 settings-card">
           <div className="flex items-start justify-between gap-6">
             <div className="flex-1">
@@ -162,26 +159,26 @@ export default function SettingsPage() {
                 Active AI Provider
               </div>
               <div className="mt-3 text-4xl font-black text-[#111827]">
-                {currentSettings?.apiProvider === "chatgpt" 
-                  ? "ChatGPT API" 
+                {currentSettings?.apiProvider === "chatgpt"
+                  ? "ChatGPT API"
                   : currentSettings?.apiProvider === "microdc"
-                  ? "MicroDC · Qwen2.5-VL"
-                  : "Groq API"}
+                    ? "MicroDC · Qwen2.5-VL"
+                    : "Groq API"}
               </div>
               <p className="mt-4 text-base leading-relaxed text-slate-600">
                 {currentSettings?.apiProvider === "chatgpt"
                   ? "Using GPT-4o vision analysis through OpenAI for high-accuracy image understanding and detailed scene interpretation."
                   : currentSettings?.apiProvider === "microdc"
-                  ? "Using Qwen2.5-VL 7B through MicroDC for fast vision analysis with optimized latency and throughput."
-                  : "Using fast inference with Llama Vision for real-time analysis with optimized latency and throughput."}
+                    ? "Using Qwen2.5-VL 7B through MicroDC for fast vision analysis with optimized latency and throughput."
+                    : "Using fast inference with Llama Vision for real-time analysis with optimized latency and throughput."}
               </p>
             </div>
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-[#111827] text-2xl font-black text-white">
-              {currentSettings?.apiProvider === "chatgpt" 
-                ? "GPT" 
+              {currentSettings?.apiProvider === "chatgpt"
+                ? "GPT"
                 : currentSettings?.apiProvider === "microdc"
-                ? "μDC"
-                : "LLM"}
+                  ? "μDC"
+                  : "LLM"}
             </div>
           </div>
           <div className="mt-6 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-500">
@@ -190,11 +187,10 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* Section 02 - Usage Dashboard */}
       <section className="settings-section">
         <div className="settings-section-number">02</div>
         <div className="settings-section-label">USAGE DASHBOARD</div>
-        
+
         <div className="mt-8">
           <h2 className="text-5xl font-black leading-tight text-[#111827] sm:text-6xl">
             Shared usage dashboard
@@ -215,7 +211,7 @@ export default function SettingsPage() {
                   App-wide API request metrics
                 </div>
               </div>
-              
+
               <form onSubmit={handleUsagePasswordSubmit} className="space-y-4">
                 <p className="text-sm leading-relaxed text-slate-600">
                   Enter the shared password to open the API usage view.
@@ -259,7 +255,6 @@ export default function SettingsPage() {
 
               <ProviderSelector password={usagePasswordRef.current} />
 
-              {/* Provider Filter */}
               <div className="settings-card">
                 <label htmlFor="provider-filter" className="block">
                   <div className="text-sm font-medium uppercase tracking-wider text-slate-400">
@@ -280,35 +275,41 @@ export default function SettingsPage() {
                 </label>
               </div>
 
-              {/* Metrics Grid */}
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="settings-metric-card">
-                  <div className="text-xs font-medium uppercase tracking-wider text-slate-400">Requests</div>
+                  <div className="text-xs font-medium uppercase tracking-wider text-slate-400">
+                    Requests
+                  </div>
                   <div className="mt-4 text-5xl font-black text-[#111827]">
                     {filteredTotals?.requestCount ?? 0}
                   </div>
                 </div>
                 <div className="settings-metric-card">
-                  <div className="text-xs font-medium uppercase tracking-wider text-slate-400">Success rate</div>
+                  <div className="text-xs font-medium uppercase tracking-wider text-slate-400">
+                    Success rate
+                  </div>
                   <div className="mt-4 text-5xl font-black text-[#2563eb]">
                     {successRate}%
                   </div>
                 </div>
                 <div className="settings-metric-card">
-                  <div className="text-xs font-medium uppercase tracking-wider text-slate-400">Tracked tokens</div>
+                  <div className="text-xs font-medium uppercase tracking-wider text-slate-400">
+                    Tracked tokens
+                  </div>
                   <div className="mt-4 text-5xl font-black text-[#111827]">
                     {filteredTotals?.totalTokens ?? 0}
                   </div>
                 </div>
                 <div className="settings-metric-card">
-                  <div className="text-xs font-medium uppercase tracking-wider text-slate-400">Last request</div>
+                  <div className="text-xs font-medium uppercase tracking-wider text-slate-400">
+                    Last request
+                  </div>
                   <div className="mt-4 text-4xl font-black text-[#111827]">
                     {formatRelativeTime(filteredTotals?.lastRequestAt ?? null)}
                   </div>
                 </div>
               </div>
 
-              {/* Provider Mix & Failures */}
               <div className="grid gap-6 lg:grid-cols-2">
                 <div className="settings-card">
                   <div className="text-sm font-medium uppercase tracking-wider text-slate-400">
@@ -317,19 +318,27 @@ export default function SettingsPage() {
                   <div className="mt-6 space-y-4">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                       <span className="text-base font-medium text-slate-700">MicroDC</span>
-                      <span className="text-2xl font-black text-[#111827]">{usageDashboard.totals.microdcRequestCount ?? 0}</span>
+                      <span className="text-2xl font-black text-[#111827]">
+                        {usageDashboard.totals.microdcRequestCount ?? 0}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                       <span className="text-base font-medium text-slate-700">Groq</span>
-                      <span className="text-2xl font-black text-[#111827]">{usageDashboard.totals.groqRequestCount}</span>
+                      <span className="text-2xl font-black text-[#111827]">
+                        {usageDashboard.totals.groqRequestCount}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                       <span className="text-base font-medium text-slate-700">Gemini</span>
-                      <span className="text-2xl font-black text-[#111827]">{usageDashboard.totals.geminiRequestCount}</span>
+                      <span className="text-2xl font-black text-[#111827]">
+                        {usageDashboard.totals.geminiRequestCount}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-base font-medium text-slate-700">ChatGPT</span>
-                      <span className="text-2xl font-black text-[#111827]">{usageDashboard.totals.chatgptRequestCount ?? 0}</span>
+                      <span className="text-2xl font-black text-[#111827]">
+                        {usageDashboard.totals.chatgptRequestCount ?? 0}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -354,7 +363,6 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Recent Requests */}
               <div className="settings-card">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
@@ -382,7 +390,7 @@ export default function SettingsPage() {
                         key={event._id}
                         className="settings-event-card"
                         style={{
-                          animationDelay: `${index * 50}ms`
+                          animationDelay: `${index * 50}ms`,
                         }}
                       >
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
