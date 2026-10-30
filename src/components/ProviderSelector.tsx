@@ -7,9 +7,13 @@ interface ProviderSelectorProps {
   password: string;
 }
 
-type ApiProvider = "groq" | "chatgpt";
+type ApiProvider = "groq" | "chatgpt" | "microdc";
 
 const providerCopy: Record<ApiProvider, { name: string; detail: string }> = {
+  microdc: {
+    name: "MicroDC · Qwen2.5-VL 7B",
+    detail: "Visual observations only. Not an intoxication or fitness-to-drive assessment. Images are sent to MicroDC when selected.",
+  },
   groq: {
     name: "Groq API",
     detail: "Fast inference with Llama Vision",

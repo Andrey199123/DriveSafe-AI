@@ -32,7 +32,7 @@ export const getMySettings = query({
 export const updateApiProvider = mutation({
   args: {
     password: v.string(),
-    apiProvider: v.union(v.literal("groq"), v.literal("chatgpt")),
+    apiProvider: v.union(v.literal("groq"), v.literal("chatgpt"), v.literal("microdc")),
   },
   handler: async (ctx, args) => {
     // Verify password

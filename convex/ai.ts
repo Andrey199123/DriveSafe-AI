@@ -3,6 +3,7 @@ import { action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { observeMicroDC, MICRODC_MODEL } from "./microdcVision";
 
 type VisionObservation = {
   eyesRed?: boolean;
@@ -213,7 +214,7 @@ export const analyzeFrame = action({
     const userId = await getAuthUserId(ctx);
     
     // Allow guest users - use null for userId if not authenticated
-    let provider: "groq" | "chatgpt" = "groq"; // Default provider for guests
+    let provider: "groq" | "chatgpt" | "microdc" = "groq"; // Preserve existing defaults until MicroDC is configured.
     
     if (userId) {
       // Get user's preferred provider if authenticated
@@ -224,7 +225,20 @@ export const analyzeFrame = action({
     }
 
     // Route to appropriate provider (userId can be null for guests)
-    if (provider === "chatgpt") {
+    if (provider === "microdc") {
+      const started = Date.now();
+      let status: "success" | "error" = "error";
+      try {
+        const result = await observeMicroDC(args.base64Image);
+        status = "success";
+        return result;
+      } finally {
+        await ctx.runMutation(internal.usage.recordUsageEvent, {
+          userId: userId ?? undefined, provider: "microdc", model: MICRODC_MODEL,
+          requestSource: args.source, status, latencyMs: Date.now() - started,
+        }).catch(() => console.error("MicroDC usage recording failed"));
+      }
+    } else if (provider === "chatgpt") {
       return await analyzeChatGPT(ctx, args.base64Image, args.source, userId as Id<"users"> | null);
     } else {
       return await analyzeGroq(ctx, args.base64Image, args.source, userId as Id<"users"> | null);

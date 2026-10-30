@@ -749,6 +749,8 @@ export function DrunkDetector() {
     distractionCountRef.current = 0;
   };
 
+  const observationOnly = currentResult?.indicators.some((item) => item.startsWith("Visual observations only.")) ?? false;
+
   const getAlertStyle = () => {
     if (!currentResult) return "";
     
@@ -764,6 +766,7 @@ export function DrunkDetector() {
 
   const getStateText = () => {
     if (!currentResult) return "";
+    if (observationOnly) return "Visual observations only · fitness to drive not assessed";
     
     if (currentResult.isDrunk && currentResult.confidence >= 30) {
       return "Possible impairment";
@@ -818,19 +821,19 @@ export function DrunkDetector() {
   const resultCards = [
     {
       label: "Alcohol cues",
-      value: currentResult?.isDrunk ? "Detected" : "Clear",
+      value: observationOnly ? "Not assessed" : currentResult?.isDrunk ? "Detected" : "Clear",
       active: currentResult?.isDrunk ?? false,
       activeClass: "text-red-600",
     },
     {
       label: "Drowsiness",
-      value: currentResult?.isSleepy ? "Detected" : "Clear",
+      value: observationOnly ? "Not assessed" : currentResult?.isSleepy ? "Detected" : "Clear",
       active: currentResult?.isSleepy ?? false,
       activeClass: "text-amber-600",
     },
     {
       label: "Attention",
-      value: currentResult?.isDistracted ? "Reduced" : "Focused",
+      value: observationOnly ? "Not assessed" : currentResult?.isDistracted ? "Reduced" : "Focused",
       active: currentResult?.isDistracted ?? false,
       activeClass: "text-yellow-600",
     },

@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 
-const providerValidator = v.union(v.literal("groq"), v.literal("gemini"), v.literal("chatgpt"));
+const providerValidator = v.union(v.literal("groq"), v.literal("gemini"), v.literal("chatgpt"), v.literal("microdc"));
 const requestSourceValidator = v.union(
   v.literal("live_camera"),
   v.literal("uploaded_image"),

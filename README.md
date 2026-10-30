@@ -1,5 +1,20 @@
 # DriveSafe AI
 
+[Open DriveSafe AI](https://drivesafe-ai.vercel.app)
+
+## MicroDC vision provider
+
+The backend includes an optional `qwen2.5vl:7b` provider through MicroDC's OpenAI-compatible API.
+Configure `MICRODC_API_KEY` securely in the Convex production environment. The default endpoint is
+`https://console.microdc.ai/v1`; `MICRODC_BASE_URL` can override it with another HTTPS endpoint.
+Deploy the Convex backend before selecting MicroDC in the authenticated provider settings.
+Keys never belong in browser code or GitHub. Selecting this provider sends the submitted image to MicroDC.
+
+MicroDC output is limited to visible observations, such as closed eyes or looking away in a single
+frame. It does not classify intoxication, diagnose drowsiness, or establish whether someone is safe
+to drive. Legacy status flags remain unset for this provider. Existing providers are unchanged.
+This is an experimental prototype, not a validated driver-safety system. Do not operate it while driving.
+
 An AI-powered Progressive Web Application for real-time driver impairment detection using advanced vision models. Built with Convex for secure authentication and server-side AI proxying.
 
 ## Features

@@ -16,7 +16,7 @@ const applicationTables = {
   }).index("by_user", ["userId"]),
   usageEvents: defineTable({
     userId: v.optional(v.id("users")),
-    provider: v.union(v.literal("groq"), v.literal("gemini"), v.literal("chatgpt")),
+    provider: v.union(v.literal("groq"), v.literal("gemini"), v.literal("chatgpt"), v.literal("microdc")),
     model: v.string(),
     requestSource: v.union(
       v.literal("live_camera"),
@@ -51,7 +51,7 @@ const applicationTables = {
     .index("by_last_request", ["lastRequestAt"]),
   userSettings: defineTable({
     userId: v.id("users"),
-    apiProvider: v.union(v.literal("groq"), v.literal("chatgpt")),
+    apiProvider: v.union(v.literal("groq"), v.literal("chatgpt"), v.literal("microdc")),
   }).index("by_user", ["userId"]),
 };
 
