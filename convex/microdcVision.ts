@@ -6,7 +6,7 @@ export async function observeMicroDC(image: string) {
   }
   const key = process.env.MICRODC_API_KEY;
   if (!key) throw new Error("MicroDC is not configured. Set MICRODC_API_KEY on the backend.");
-  const base = process.env.MICRODC_BASE_URL || "https://console.microdc.ai/v1";
+  const base = process.env.MICRODC_BASE_URL || "https://api.microdc.ai/v1";
   if (new URL(base).protocol !== "https:") throw new Error("MicroDC requires HTTPS.");
   const response = await fetch(`${base.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",

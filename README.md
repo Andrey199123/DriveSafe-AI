@@ -6,7 +6,7 @@
 
 The backend includes an optional `qwen2.5vl:7b` provider through MicroDC's OpenAI-compatible API.
 Configure `MICRODC_API_KEY` securely in the Convex production environment. The default endpoint is
-`https://console.microdc.ai/v1`; `MICRODC_BASE_URL` can override it with another HTTPS endpoint.
+`https://api.microdc.ai/v1`; `MICRODC_BASE_URL` can override it with another HTTPS endpoint.
 Deploy the Convex backend before selecting MicroDC in the authenticated provider settings.
 Keys never belong in browser code or GitHub. Selecting this provider sends the submitted image to MicroDC.
 
