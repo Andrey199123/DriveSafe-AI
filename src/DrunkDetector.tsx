@@ -15,6 +15,9 @@ interface DetectionResult {
   eyesClosed?: boolean;
   lookingAway?: boolean;
   faceVisible?: boolean;
+  eyesClosedConfidence?: number;
+  lookingAwayConfidence?: number;
+  faceVisibleConfidence?: number;
 }
 
 type AnalysisSource = "live_camera" | "uploaded_image" | "uploaded_video";
@@ -346,7 +349,10 @@ export function DrunkDetector() {
       result.lookingAway ?? result.indicators.some((item) => item.includes("directed away"));
     const faceVisible =
       result.faceVisible ?? !result.indicators.some((item) => item.includes("No clear face visible"));
-    return { eyesClosed, lookingAway, faceVisible };
+    const eyesClosedConfidence = result.eyesClosedConfidence ?? result.confidence;
+    const lookingAwayConfidence = result.lookingAwayConfidence ?? result.confidence;
+    const faceVisibleConfidence = result.faceVisibleConfidence ?? result.confidence;
+    return { eyesClosed, lookingAway, faceVisible, eyesClosedConfidence, lookingAwayConfidence, faceVisibleConfidence };
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -883,6 +889,7 @@ export function DrunkDetector() {
           value: currentResult ? (observations?.faceVisible ? "Visible" : "Not visible") : "--",
           active: observations?.faceVisible === false,
           activeClass: "text-slate-600",
+          confidence: observations?.faceVisibleConfidence,
         },
         {
           label: "Eyes",
@@ -893,6 +900,7 @@ export function DrunkDetector() {
               : "Open",
           active: observations?.eyesClosed ?? false,
           activeClass: "text-amber-600",
+          confidence: observations?.eyesClosedConfidence,
         },
         {
           label: "Gaze",
@@ -903,6 +911,7 @@ export function DrunkDetector() {
               : "Toward camera",
           active: observations?.lookingAway ?? false,
           activeClass: "text-yellow-600",
+          confidence: observations?.lookingAwayConfidence,
         },
       ]
     : [
@@ -911,18 +920,21 @@ export function DrunkDetector() {
           value: currentResult?.isDrunk ? "Detected" : "Clear",
           active: currentResult?.isDrunk ?? false,
           activeClass: "text-red-600",
+          confidence: undefined,
         },
         {
           label: "Drowsiness",
           value: currentResult?.isSleepy ? "Detected" : "Clear",
           active: currentResult?.isSleepy ?? false,
           activeClass: "text-amber-600",
+          confidence: undefined,
         },
         {
           label: "Attention",
           value: currentResult?.isDistracted ? "Reduced" : "Focused",
           active: currentResult?.isDistracted ?? false,
           activeClass: "text-yellow-600",
+          confidence: undefined,
         },
       ];
 
@@ -1160,9 +1172,16 @@ export function DrunkDetector() {
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
                       {card.label}
                     </p>
-                    <p className={`text-xl font-bold ${card.active ? card.activeClass : "text-slate-400"}`}>
-                      {card.value}
-                    </p>
+                    <div className="flex items-center gap-3">
+                      <p className={`text-xl font-bold ${card.active ? card.activeClass : "text-slate-400"}`}>
+                        {card.value}
+                      </p>
+                      {card.confidence !== undefined && (
+                        <p className="text-xs font-medium text-slate-400">
+                          {Math.round(card.confidence)}%
+                        </p>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
