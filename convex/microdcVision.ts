@@ -10,6 +10,10 @@ export type MicroDCObservation = {
   confidence: number;
   state: "drunk" | "sleepy" | "distracted" | "normal";
   indicators: string[];
+  eyesClosed: boolean;
+  lookingAway: boolean;
+  faceVisible: boolean;
+  observationOnly: boolean;
 };
 
 function asBoolean(value: unknown): boolean | undefined {
@@ -157,5 +161,9 @@ Return ONLY the JSON object.`,
     confidence: observation.confidence ?? 75,
     indicators,
     state,
+    eyesClosed,
+    lookingAway,
+    faceVisible: true,
+    observationOnly: true,
   };
 }
