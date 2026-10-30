@@ -214,14 +214,14 @@ export const analyzeFrame = action({
     const userId = await getAuthUserId(ctx);
     
     // Allow guest users - use null for userId if not authenticated
-    let provider: "groq" | "chatgpt" | "microdc" = "groq"; // Preserve existing defaults until MicroDC is configured.
+    let provider: "groq" | "chatgpt" | "microdc" = "microdc"; // Default to MicroDC
     
     if (userId) {
       // Get user's preferred provider if authenticated
       const userSettings = await ctx.runQuery(internal.settings.getUserSettings, {
         userId,
       });
-      provider = userSettings?.apiProvider ?? "groq";
+      provider = userSettings?.apiProvider ?? "microdc";
     }
 
     // Route to appropriate provider (userId can be null for guests)

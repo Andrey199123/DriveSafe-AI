@@ -7,12 +7,12 @@ interface ProviderSelectorProps {
   password: string;
 }
 
-type ApiProvider = "groq" | "chatgpt" | "microdc";
+type ApiProvider = "microdc" | "groq" | "chatgpt";
 
 const providerCopy: Record<ApiProvider, { name: string; detail: string }> = {
   microdc: {
     name: "MicroDC · Qwen2.5-VL 7B",
-    detail: "Visual observations only. Not an intoxication or fitness-to-drive assessment. Images are sent to MicroDC when selected.",
+    detail: "Fast vision analysis with Qwen2.5-VL model - default provider for real-time image analysis",
   },
   groq: {
     name: "Groq API",
@@ -30,7 +30,7 @@ export function ProviderSelector({ password }: ProviderSelectorProps) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [optimisticProvider, setOptimisticProvider] = useState<ApiProvider | null>(null);
 
-  const persistedProvider = settings?.apiProvider ?? "groq";
+  const persistedProvider = settings?.apiProvider ?? "microdc";
   const currentProvider = optimisticProvider ?? persistedProvider;
 
   useEffect(() => {

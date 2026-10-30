@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
 import { ProviderSelector } from "../components/ProviderSelector";
 
-type UsageProvider = "groq" | "gemini" | "chatgpt";
+type UsageProvider = "groq" | "gemini" | "chatgpt" | "microdc";
 
 interface UsageDashboard {
   totals: {
@@ -14,6 +14,7 @@ interface UsageDashboard {
     groqRequestCount: number;
     geminiRequestCount: number;
     chatgptRequestCount: number;
+    microdcRequestCount?: number;
     promptTokens: number;
     completionTokens: number;
     totalTokens: number;
@@ -61,6 +62,7 @@ export default function SettingsPage() {
   const formatProviderName = (provider: UsageProvider) => {
     if (provider === "chatgpt") return "ChatGPT";
     if (provider === "groq") return "Groq";
+    if (provider === "microdc") return "MicroDC";
     return "Gemini";
   };
 
@@ -74,6 +76,8 @@ export default function SettingsPage() {
               ? usageDashboard.totals.groqRequestCount
               : selectedProvider === "gemini"
               ? usageDashboard.totals.geminiRequestCount
+              : selectedProvider === "microdc"
+              ? (usageDashboard.totals.microdcRequestCount ?? 0)
               : usageDashboard.totals.chatgptRequestCount,
           successCount: usageDashboard.recentEvents.filter(
             (e) => e.provider === selectedProvider && e.status === "success"
@@ -158,16 +162,26 @@ export default function SettingsPage() {
                 Active AI Provider
               </div>
               <div className="mt-3 text-4xl font-black text-[#111827]">
-                {currentSettings?.apiProvider === "chatgpt" ? "ChatGPT API" : "Groq API"}
+                {currentSettings?.apiProvider === "chatgpt" 
+                  ? "ChatGPT API" 
+                  : currentSettings?.apiProvider === "microdc"
+                  ? "MicroDC · Qwen2.5-VL"
+                  : "Groq API"}
               </div>
               <p className="mt-4 text-base leading-relaxed text-slate-600">
                 {currentSettings?.apiProvider === "chatgpt"
                   ? "Using GPT-4o vision analysis through OpenAI for high-accuracy image understanding and detailed scene interpretation."
+                  : currentSettings?.apiProvider === "microdc"
+                  ? "Using Qwen2.5-VL 7B through MicroDC for fast vision analysis with optimized latency and throughput."
                   : "Using fast inference with Llama Vision for real-time analysis with optimized latency and throughput."}
               </p>
             </div>
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-[#111827] text-2xl font-black text-white">
-              {currentSettings?.apiProvider === "chatgpt" ? "GPT" : "LLM"}
+              {currentSettings?.apiProvider === "chatgpt" 
+                ? "GPT" 
+                : currentSettings?.apiProvider === "microdc"
+                ? "μDC"
+                : "LLM"}
             </div>
           </div>
           <div className="mt-6 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-500">
@@ -258,6 +272,7 @@ export default function SettingsPage() {
                     className="settings-select"
                   >
                     <option value="all">All Providers</option>
+                    <option value="microdc">MicroDC Only</option>
                     <option value="groq">Groq Only</option>
                     <option value="gemini">Gemini Only</option>
                     <option value="chatgpt">ChatGPT Only</option>
@@ -300,6 +315,10 @@ export default function SettingsPage() {
                     Provider mix
                   </div>
                   <div className="mt-6 space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <span className="text-base font-medium text-slate-700">MicroDC</span>
+                      <span className="text-2xl font-black text-[#111827]">{usageDashboard.totals.microdcRequestCount ?? 0}</span>
+                    </div>
                     <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                       <span className="text-base font-medium text-slate-700">Groq</span>
                       <span className="text-2xl font-black text-[#111827]">{usageDashboard.totals.groqRequestCount}</span>
