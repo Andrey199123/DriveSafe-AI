@@ -31,5 +31,5 @@ const iconHTML = `<!DOCTYPE html>
 </body>
 </html>`;
 
-fs.writeFileSync(path.join(__dirname, 'public', 'icon-preview.html'), iconHTML);
+fs.writeFileSync(path.join(__dirname, '..', 'public', 'icon-preview.html'), iconHTML);
 console.log('\nCreated icon-preview.html - you can open it in a browser and screenshot each icon size');

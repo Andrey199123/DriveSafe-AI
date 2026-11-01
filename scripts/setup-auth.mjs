@@ -1,4 +1,5 @@
 /**
+ * Run from the repository root: node scripts/setup-auth.mjs
  * This script runs `npx @convex-dev/auth` to help with setting up
  * environment variables for Convex Auth.
  *

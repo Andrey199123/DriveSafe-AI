@@ -51,6 +51,13 @@ npm run build
 
 These run the automated suite and frontend build; they do not establish road-safety performance. The `lint` script also invokes Convex deployment tooling; inspect it before running against a connected environment.
 
+## Maintenance helpers
+
+Optional utilities live in `scripts/` rather than the repository root:
+
+- `node scripts/setup-auth.mjs`: interactive Convex Auth setup; run from the repository root against your own development environment.
+- `node scripts/generate-icons.cjs`: regenerates the placeholder icon-preview HTML, not production PNG assets. This overwrites `public/icon-preview.html`.
+
 ## Optional MicroDC provider
 
 The backend supports `qwen2.5vl:7b` through MicroDC's OpenAI-compatible API. Configure `MICRODC_API_KEY` securely in Convex; `MICRODC_BASE_URL` may override the default `https://api.microdc.ai/v1` with another HTTPS endpoint. Deploy the backend before selecting this provider in authenticated settings.
